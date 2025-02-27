@@ -24,16 +24,16 @@ def A_matrix(n, C, sig2, seed, LH):
                 A[i][j] = 0     # for connectedness
             if LH==1:
                 if j == i+1 or j==i-1:
-                    A[i][j] = -1
+                    A[i][j] = 0
     #for r in A:
     #   print(r)
     return A
 
-A = A_matrix(5, 0.5, 1, 10, LH=0)
+'''A = A_matrix(5, 0.5, 1, 10, LH=0)
 for r in A:
     print(r)
 
-print(np.max(A))
+print(np.max(A))'''
 
 
 def M_matrix(n, muc, mua, f, g, seed):

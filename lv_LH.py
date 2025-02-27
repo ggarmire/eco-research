@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import integrate
 from lv_matrices import A_matrix
+from lv_matrices import M_matrix
 import random 
 
 seed = 1
@@ -11,28 +12,33 @@ np.random.seed(seed)
 
 
 #%% initial conditions and such 
-n = 20     # number of species 
+n = 10     # number of species 
 
 #x0 = np.random.uniform(low=0.1, high = 1, size=(n))
 x0 = np.ones(n)
-#r = np.random.uniform(low=0, high=1, size=n)
-r = np.ones(n)
 C = 0.1    # connectedness|
 sigma2 = 0.5;       ## variance in off diagonals of interaction matrix
 
-t_end = 30     # length of time 
-Nt = 10000
+t_end = 50     # length of time 
+Nt = 100*t_end
 
 K = (C*sigma2*n)**0.5
 print("x0: ", x0)
-print("r: ", r)
 print("complexity: ", K)
 
+# for m matrix:
+muc = 0.5
+mua = muc
+f = 0.3
+g = 0.3
 
-
-A = A_matrix(n, C, sigma2, seed, LH=0) #- np.identity(n)
+A = A_matrix(n, C, sigma2, seed, LH=1) 
+M = M_matrix(n, muc, mua, f, g, seed)
 
 evals, evecs = np.linalg.eig(A)
+print ("A: ")
+for r in A:
+    print(r)
 print("max eigenvalue: ", np.max(np.real(evals)))
 #A= [[0, 1], [-1, 0]]
 
@@ -40,7 +46,7 @@ def derivative(x, t, r, A):
     for i in range(0, n):
         if x[i] <=0:
             x[i] = 0
-    dxdt = np.multiply(r, x) + np.multiply(x, np.dot(A, x))
+    dxdt = np.dot(M, x) + np.multiply(x, np.dot(A, x))
     for i in range(0, n):
        if x[i]<=0:
             dxdt[i] == 0
@@ -59,8 +65,8 @@ for num in result[-1, :]:
 
 
 print("tfinal: ", t[-1], ", species remaining:", count)
-print("final populations: ", result[-1, :])
-print("min value in x: ", np.min(result))
+if count !=0: print("final populations: ", result[-1, :])
+#print("min value in x: ", np.min(result))
 #print(t)
 plt.figure()
 
