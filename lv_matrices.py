@@ -24,7 +24,7 @@ def A_matrix(n, C, sig2, seed, LH):
                 A[i][j] = 0     # for connectedness
             if LH==1:
                 if j == i+1 or j==i-1:
-                    A[i][j] = 0
+                    A[i][j] = -1
     #for r in A:
     #   print(r)
     return A
@@ -46,8 +46,8 @@ def M_matrix(n, muc, mua, f, g, seed):
 
     for i in range (0, n-1):
         if i % 2 == 0:
-            M[i][i] = -muc
-            M[i+1][i+1] = -mua
+            M[i][i] = muc
+            M[i+1][i+1] = mua
             M[i][i+1] = f
             M[i+1][i] = g
         

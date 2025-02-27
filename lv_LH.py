@@ -15,7 +15,7 @@ np.random.seed(seed)
 n = 10     # number of species 
 
 #x0 = np.random.uniform(low=0.1, high = 1, size=(n))
-x0 = np.ones(n)
+x0 = 0.5*np.ones(n)
 C = 0.1    # connectedness|
 sigma2 = 0.5;       ## variance in off diagonals of interaction matrix
 
@@ -28,9 +28,9 @@ print("complexity: ", K)
 
 # for m matrix:
 muc = 0.5
-mua = muc
-f = 0.3
-g = 0.3
+mua = 0.5*muc
+f = 0.1
+g = 0.1
 
 A = A_matrix(n, C, sigma2, seed, LH=1) 
 M = M_matrix(n, muc, mua, f, g, seed)
@@ -40,6 +40,10 @@ print ("A: ")
 for r in A:
     print(r)
 print("max eigenvalue: ", np.max(np.real(evals)))
+
+print ("M: ")
+for r in M:
+    print(r)
 #A= [[0, 1], [-1, 0]]
 
 def derivative(x, t, r, A):
@@ -76,7 +80,7 @@ for i in range(n):
     plt.plot(t, result[:, i], 'x')
 plt.xlabel('Time t, [days]')
 plt.ylabel('Population')
-plt.ylim(-.2, 5)
+plt.ylim(-.2, 1.2)
 plt.legend()
 
 plt.show()
