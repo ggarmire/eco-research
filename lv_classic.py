@@ -6,12 +6,12 @@ from scipy import integrate
 from lv_matrices import A_matrix
 import random 
 
-seed = 1
+seed = 624
 np.random.seed(seed)
 
 
 #%% initial conditions and such 
-n = 20     # number of species 
+n = 10     # number of species 
 
 #x0 = np.random.uniform(low=0.1, high = 1, size=(n))
 x0 = np.ones(n)
@@ -31,6 +31,9 @@ print("complexity: ", K)
 
 
 A = A_matrix(n, C, sigma2, seed, LH=0) #- np.identity(n)
+        
+        
+        
 
 evals, evecs = np.linalg.eig(A)
 print("max eigenvalue: ", np.max(np.real(evals)))
@@ -67,10 +70,10 @@ plt.figure()
 plt.grid()
 plt.title("Species Population over time")
 for i in range(n):
-    plt.plot(t, result[:, i], 'x')
+    plt.plot(t, result[:, i], '.')
 plt.xlabel('Time t, [days]')
 plt.ylabel('Population')
-plt.ylim(-.2, 5)
+plt.ylim(-.1, max(1.1, 1.1*np.max(result)))
 plt.legend()
 
 plt.show()
