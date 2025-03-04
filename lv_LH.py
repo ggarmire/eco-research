@@ -16,7 +16,7 @@ print("seed: ", seed)
 #%% initial conditions and such 
 n = 6     # number of species 
 
-x0 = np.random.uniform(low=0.1, high = 1, size=(n))
+x0 = np.random.uniform(low=0.1, high = 0.5, size=(n))
 #x0 = 0.5*np.ones(n)
 C = 0.5    # connectedness|
 sigma2 = 0.5;       ## variance in off diagonals of interaction matrix
