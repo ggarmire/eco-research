@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from scipy import integrate
 import random 
 import math
+from scipy.optimize import curve_fit
 
 from lv_functions import A_matrix
 from lv_functions import M_matrix
@@ -50,8 +51,9 @@ for i in range(runs):
     mua = 0.5
     f = np.random.uniform(low=0.1, high = 0.9)
     g = np.random.uniform(low=0.1, high = 0.9)
-    M = M_matrix(n, muc, mua, f, g)
-
+    
+    #M = M_matrix(n, muc, mua, f, g)
+    M = M_matrix(n, f, g, muc, mua)
     result = lv_LH_one(x0, t, A, M)
 
     xfs[:, i] = result[-1, :]
@@ -80,7 +82,26 @@ for i in range(runs):
     print("species_stable:", n_stable[i])'''
 
         
-'''somethin'''
+## fitts
+pars_f_xfs = np.zeros((2,n))
+pars_g_xfs = np.zeros((2,n))
+covs_f_xfs = np.zeros(n)
+covs_g_xfs = np.zeros(n)
+
+def linear(x, m, b): 
+    y = m*x+b
+    return y
+
+
+for i in range(n):
+    k, cov = curve_fit(linear, fs, xfs[i])
+    pars_f_xfs[0,i] = k[0]; pars_f_xfs[1,i] = k[1]
+    l, cov = curve_fit(linear, gs, xfs[i])
+    pars_g_xfs[0,i] = l[0]; pars_g_xfs[1,i] = l[1]
+
+for i in range(n):
+    print('xf', i, '=', pars_f_xfs[0, i], 'f +', pars_f_xfs[1,i])
+    print('xf', i, '=', pars_g_xfs[0, i], 'g +', pars_g_xfs[1,i])
 
 
 ## plotting 
@@ -110,8 +131,8 @@ plt.grid()
 plt.title("f, g vs. juvinile fraction")
 #print(int(n/2))
 for i in range(int(n/2)):
-    plt.plot(fs, zs[i, :], '.b')
-    plt.plot(gs, zs[i, :], '.g')
+    plt.plot(fs, zs[i, :], '.')
+    #plt.plot(gs, zs[i, :], '.g')
 plt.xlabel('f, g')
 plt.ylabel('juvinile fraction')
 
@@ -120,7 +141,6 @@ plt.ylabel('juvinile fraction')
 plt.figure()
 plt.grid()
 plt.title("f, g vs. final population")
-print(int(n/2))
 for i in range(n):
     if i%2 ==0:
         plt.plot(fs, xfs[i, :], '.b',  mfc = 'none')
@@ -135,16 +155,27 @@ plt.ylabel('final population density')
 plt.figure()
 plt.grid()
 plt.title("f, g vs. final population of only species 1, 2")
-print(int(n/2))
-plt.plot(fs, xfs[0, :], '.b', mfc = 'none', label = '1c, f')
-plt.plot(gs, xfs[0, :], '.g', mfc = 'none', label = '1c, g')
-plt.plot(fs, xfs[2, :], '.k', mfc = 'none', label = '2c, f')
-plt.plot(gs, xfs[2, :], '.r', mfc = 'none', label = '2c, g')
-plt.plot(fs, xfs[1, :], '.b', label = '1c, f')
-plt.plot(gs, xfs[1, :], '.g', label = '1c, g')
-plt.plot(fs, xfs[3, :], '.k', label = '3c, f')
-plt.plot(gs, xfs[3, :], '.r', label = '3c, g')
-plt.legend(loc='best', fontsize = 6)
+plt.plot(gs, xfs[0, :], '.m', alpha=0.4, label = '1c, g')
+plt.plot(gs, xfs[1, :], '.r', alpha=0.4, label = '1a, g')
+plt.plot(gs, xfs[2, :], '.c', alpha=0.4, label = '2c, g')
+plt.plot(gs, xfs[3, :], '.b', alpha=0.4, label = '2a, g')
+plt.plot(fs, xfs[0, :], '.m', mfc = 'none', alpha=0.4, label = '1c, f')
+plt.plot(fs, xfs[1, :], '.r', mfc = 'none', alpha=0.4, label = '1a, f')
+plt.plot(fs, xfs[2, :], '.c', mfc = 'none', alpha=0.4, label = '2c, f')
+plt.plot(fs, xfs[3, :], '.b', mfc = 'none', alpha=0.4, label = '2a, f')
+
+
+
+plt.plot(fs, linear(fs, pars_f_xfs[0, 0], pars_f_xfs[1, 0]), '-m')
+plt.plot(gs, linear(gs, pars_g_xfs[0, 0], pars_g_xfs[1, 0]), '-m')
+plt.plot(fs, linear(fs, pars_f_xfs[0, 1], pars_f_xfs[1, 1]), '-r')
+plt.plot(gs, linear(gs, pars_g_xfs[0, 1], pars_g_xfs[1, 1]), '-r')
+plt.plot(fs, linear(fs, pars_f_xfs[0, 2], pars_f_xfs[1, 2]), '-c')
+plt.plot(gs, linear(gs, pars_g_xfs[0, 2], pars_g_xfs[1, 2]), '-c')
+plt.plot(fs, linear(fs, pars_f_xfs[0, 3], pars_f_xfs[1, 3]), '-b')
+plt.plot(gs, linear(gs, pars_g_xfs[0, 3], pars_g_xfs[1, 3]), '-b')
+
+plt.legend(loc='best', fontsize = 8, ncol=2)
 
 plt.xlabel('f, g')
 plt.ylabel('final population density')
