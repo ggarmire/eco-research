@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from scipy import integrate
 from lv_functions import A_matrix
 from lv_functions import M_matrix
-from lv_functions import lv_LH_one
+from lv_functions import lv_LH
 import random 
 import math
 
@@ -46,7 +46,7 @@ print("max eigenvalue of A: ", np.max(np.real(Avals)))
 print ("eigenvalues of M: ", Mvals)
 
 # run function here: 
-result = lv_LH_one(x0, t, A, M)
+result = lv_LH(x0, t, A, M)
 
 print("final populations: ")
 print(result[-1, :])

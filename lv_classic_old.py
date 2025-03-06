@@ -70,7 +70,7 @@ plt.figure()
 plt.grid()
 plt.title("Species Population over time")
 for i in range(n):
-    plt.plot(t, result[:, i], '.')
+    plt.plot(t, result[:, i], '.', )
 plt.xlabel('Time t, [days]')
 plt.ylabel('Population')
 plt.ylim(-.1, max(1.1, 1.1*np.max(result)))

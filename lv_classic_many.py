@@ -42,7 +42,7 @@ for run in range(runs):
             A_rowsums[j] += A[j][i]
 
     for i in range(n):
-        r[i] = A_rowsums[i]        # this is what makes all the equilibrium populations the same. 
+        r[i] = -A_rowsums[i]        # this is what makes all the equilibrium populations the same. 
             
     evals, evecs = np.linalg.eig(A)
 
@@ -52,7 +52,7 @@ for run in range(runs):
         for i in range(0, n):
             if x[i] <=0:
                 x[i] = 0
-        dxdt = np.multiply(r, x) - np.multiply(x, np.dot(A, x))
+        dxdt = np.multiply(r, x) + np.multiply(x, np.dot(A, x))
         for i in range(0, n):
             if x[i]<=0:
                     dxdt[i] == 0

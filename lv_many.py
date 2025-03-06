@@ -11,7 +11,7 @@ from scipy.optimize import curve_fit
 
 from lv_functions import A_matrix
 from lv_functions import M_matrix
-from lv_functions import lv_LH_one
+from lv_functions import lv_LH
 
 # set number of times you solve:
 runs = 1000
@@ -56,7 +56,7 @@ for i in range(runs):
     
     #M = M_matrix(n, muc, mua, f, g)
     M = M_matrix(n, f, g, mua, muc)
-    result = lv_LH_one(x0, t, A, M)
+    result = lv_LH(x0, t, A, M)
 
     xfs[:, i] = result[-1, :]
     mucs[i] = muc
