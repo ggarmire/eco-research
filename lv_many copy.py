@@ -21,48 +21,43 @@ runs = 1000
 n = 10
 
 
+muc = 0.5
+mua = 0.5
+f = 0.5
+g = 0.5
+
+#M = M_matrix(n, muc, mua, f, g)
+M = M_matrix(n, f, g, mua, muc)
+
 
 t = np.linspace(0, 50, 1000)
 sigma2 = 0.5
-C = 0.1 
+C = 0.2
 
-A = A_matrix(n, C, sigma2, seed=1, LH=1)
-
-for r in A:
-    print(r)
 
 x0 = 0.5*np.ones(n)    
 
 # make empty matrices
 xfs = np.zeros((n, runs))
-mucs = np.zeros(runs)
-muas = np.zeros(runs)
-fs = np.zeros(runs)
-gs = np.zeros(runs)
 
 zs = np.zeros((int(n/2), runs))
 n_stable = np.zeros(runs)
 n_species = np.zeros(runs)
+max_eig = np.zeros(runs)
 
 # run function 
 
 
 for i in range(runs):
-    seed = i
-    muc = 0.5
-    mua = 0.5
-    f = np.random.uniform(low=0.1, high = 0.9)
-    g = np.random.uniform(low=0.1, high = 0.9)
+
+    A = A_matrix(n, C, sigma2, seed=i, LH=1)
+    avals, avecs = np.linalg.eig(A)
+    max_eig[i] = np.max(np.real(avals))
+
     
-    #M = M_matrix(n, muc, mua, f, g)
-    M = M_matrix(n, f, g, mua, muc)
     result = lv_LH_one(x0, t, A, M)
 
     xfs[:, i] = result[-1, :]
-    mucs[i] = muc
-    muas[i] = mua
-    fs[i] = f
-    gs[i] = g
 
     species_left = 0
     species_stable = 0
@@ -73,7 +68,8 @@ for i in range(runs):
         if abs((result[-1, j]-result[-2, j]) / result[-1, j]) < 1e-3:
             species_stable +=1
         if j%2 == 0:
-            zs[int(j/2), i]= (result[-1,j]/(result[-1,j]+result[-1,j+1]))
+            if result[-1,j] > 1e-4 and result[-1,j+1] > 1e-4:
+                zs[int(j/2), i]= abs((result[-1,j]/(result[-1,j]+result[-1,j+1])))
 
     n_species[i] = species_left
     n_stable[i] = species_stable
@@ -83,8 +79,11 @@ for i in range(runs):
     print("species_left:", n_species[i])
     print("species_stable:", n_stable[i])'''
 
+
+
+
         
-## fitts
+'''## fitts
 pars_f_xfs = np.zeros((2,n))
 pars_g_xfs = np.zeros((2,n))
 covs_f_xfs = np.zeros(n)
@@ -103,12 +102,32 @@ for i in range(n):
 
 for i in range(n):
     print('xf', i, '=', pars_f_xfs[0, i], 'f +', pars_f_xfs[1,i])
-    print('xf', i, '=', pars_g_xfs[0, i], 'g +', pars_g_xfs[1,i])
+    print('xf', i, '=', pars_g_xfs[0, i], 'g +', pars_g_xfs[1,i])'''
 
 
 ## plotting 
 
-# f,g vs remaining species
+# species stable vs z
+plt.figure()
+plt.grid()
+plt.title("# left vs juvinile fractions")
+for i in range (int(n/2)):
+    plt.plot(n_species, zs[i,:], '.b', label = 'juvinile fractions')
+#plt.plot(gs, n_species, '.g', label = 'muc')
+plt.xlabel('f, g')
+plt.ylabel('species remaining')
+
+# species stable vs z
+plt.figure()
+plt.grid()
+plt.title("max eigenvalue of A vs # of stable species")
+for i in range (int(n/2)):
+    plt.plot(max_eig, n_species, '.b')
+#plt.plot(gs, n_species, '.g', label = 'muc')
+plt.xlabel('f, g')
+plt.ylabel('species remaining')
+
+'''# f,g vs remaining species
 plt.figure()
 plt.grid()
 plt.title("f, g vs. species left")
@@ -189,7 +208,7 @@ plt.ylabel('final population density')
 
 
 
-
+'''
 plt.show()
 
 

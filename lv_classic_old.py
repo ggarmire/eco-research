@@ -6,10 +6,7 @@ from scipy import integrate
 from lv_functions import A_matrix
 import random 
 
-seed = 75
-#seed = random.randint(0, 1000)
-print("seed: ", seed)
-
+seed = 2
 np.random.seed(seed)
 
 
@@ -17,14 +14,14 @@ np.random.seed(seed)
 n = 10     # number of species 
 
 #x0 = np.random.uniform(low=0.1, high = 1, size=(n))
-x0 = 0.5 * np.ones(n)
+x0 = 0.5*np.ones(n)
 #r = np.random.uniform(low=0, high=1, size=n)
 r = np.ones(n)
-C = 0.3    # connectedness|
-sigma2 = 0.4;       ## variance in off diagonals of interaction matrix
+C = 0.1    # connectedness|
+sigma2 = 0.5;       ## variance in off diagonals of interaction matrix
 
 t_end = 30     # length of time 
-Nt = 1000
+Nt = 10000
 
 K = (C*sigma2*n)**0.5
 print("x0: ", x0)
@@ -33,23 +30,14 @@ print("complexity: ", K)
 
 
 
-A = A_matrix(n, C, sigma2, seed, LH=0) 
-
-A_rowsums = np.zeros(n)
-for i in range(n):
-    #print(A[i, :])
-    for j in range(n):
-        A_rowsums[j] += A[j][i]
-
-for i in range(n):
-    r[i] = -A_rowsums[i]        # this is what makes all the equilibrium populations the same. 
-
-print(A_rowsums)
+A = A_matrix(n, C, sigma2, seed, LH=0) #- np.identity(n)
         
+        
+        
+
 evals, evecs = np.linalg.eig(A)
-
 print("max eigenvalue: ", np.max(np.real(evals)))
-
+#A= [[0, 1], [-1, 0]]
 
 def derivative(x, t, r, A):
     for i in range(0, n):
@@ -82,18 +70,11 @@ plt.figure()
 plt.grid()
 plt.title("Species Population over time")
 for i in range(n):
-    plt.plot(t, result[:, i], 'o', ms = 3, mfc = 'none', markevery = 10)
+    plt.plot(t, result[:, i], '.')
 plt.xlabel('Time t, [days]')
 plt.ylabel('Population')
 plt.ylim(-.1, max(1.1, 1.1*np.max(result)))
-
-plt.figure()
-plt.grid()
-plt.title("eigenvalues of A")
-plt.xlabel('real component]')
-plt.ylabel('imaginary component')
-plt.plot(np.real(evals), np.imag(evals), 'o')
-
+plt.legend()
 
 plt.show()
 
