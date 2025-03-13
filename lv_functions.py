@@ -62,8 +62,8 @@ def M_matrix(n, muc, mua, f, g):
 
     for i in range (0, n-1):
         if i % 2 == 0:
-            M[i][i] = -muc
-            M[i+1][i+1] =- mua
+            M[i][i] = muc
+            M[i+1][i+1] = mua
             M[i][i+1] = f   
             M[i+1][i] = g
         

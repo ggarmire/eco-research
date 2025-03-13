@@ -50,7 +50,6 @@ evals, evecs = np.linalg.eig(A)
 
 print("max eigenvalue: ", np.max(np.real(evals)))
 
-
 def derivative(x, t, r, A):
     for i in range(0, n):
         if x[i] <=0:
