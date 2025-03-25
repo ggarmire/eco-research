@@ -14,14 +14,14 @@ np.random.seed(seed)
 
 
 #%% initial conditions and such 
-n = 10     # number of species 
+n = 20     # number of species 
 
 #x0 = np.random.uniform(low=0.1, high = 1, size=(n))
 x0 = 0.5 * np.ones(n)
 #r = np.random.uniform(low=0, high=1, size=n)
 r = np.ones(n)
-C = 0.3    # connectedness|
-sigma2 = 0.4;       ## variance in off diagonals of interaction matrix
+C = 1    # connectedness|
+sigma2 = 0.02;       ## variance in off diagonals of interaction matrix
 
 t_end = 30     # length of time 
 Nt = 1000

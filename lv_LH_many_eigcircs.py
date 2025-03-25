@@ -8,7 +8,7 @@ from lv_functions import M_matrix
 from lv_functions import lv_LH
 import random 
 
-n = 10
+n = 20
 
 x0 = 0.5 * np.ones(n)
 C = 0.3    # connectedness|
@@ -107,8 +107,8 @@ plt.title("eigenvalues of A")
 plt.xlabel('real component]')
 plt.ylabel('imaginary component')
 plt.plot(eigs_real, eigs_imag, 'o', ms=2, alpha=.5)
-plt.xlim([-20,5])
-plt.ylim([-2.5,2.5])
+#plt.xlim([-20,5])
+#plt.ylim([-2.5,2.5])
 
 
 plt.show()

@@ -78,9 +78,12 @@ def lv_LH(x0, t, A, M):
     def derivative(x, t, M, A):
         
         for i in range(0, len(x0)):
-            if x[i] <=0:
+            if x[i] <= 0:
                 x[i] = 0
         dxdt = np.dot(M, x) + np.multiply(x, np.dot(A, x))
+        for i in range(0, len(x0)):
+            if x[i] <= 0:
+                dxdt[i] = 0
         return dxdt
     
     result = integrate.odeint(derivative, x0, t, args = (M, A))
@@ -93,7 +96,11 @@ def lv_classic(x0, t, A, r):
         for i in range(0, len(x0)):
             if x[i] <=0:
                 x[i] = 0
+
         dxdt = np.multiply(r, x) + np.multiply(x, np.dot(A, x))
+        for i in range(0, len(x0)):
+            if x[i] <= 0:
+                dxdt[i] == 0
         return dxdt
     
     result = integrate.odeint(derivative, x0, t, args = (r, A))

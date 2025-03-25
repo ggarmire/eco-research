@@ -10,10 +10,14 @@ import random
 
 n = 20
 
-x0 = 0.5 * np.ones(n)
-C = 0.1    # connectedness|
-sigma2 = 0.5;       ## variance in off diagonals of interaction matrix
-t_end = 30     # length of time 
+x0 = 0.5* np.ones(n)
+np.random.seed(1)
+for i in range(n):
+    x0[i] += np.random.normal(loc=0, scale=0.2)
+
+C = 1    # connectedness|
+sigma2 = .9**2/n;       ## variance in off diagonals of interaction matrix
+t_end = 40     # length of time 
 Nt = 1000
 K = (C*sigma2*n)**0.5
 print("complexity: ", K)
@@ -50,28 +54,19 @@ for run in range(runs):
     g = 0.5
     M = M_matrix(n, muc, mua, f, g)
 
+    M_rowsums = np.dot(M, np.ones(n))
 
-    
     #print(M)
 
     for i in range(n):
         for j in range(n):
-            M[i][j] = M[i][j]*A_rowsums[i]
+            M[i][j] = M[i][j]*A_rowsums[i]/M_rowsums[i]
             
     evals, evecs = np.linalg.eig(A)
 
-    def derivative(x, t, r, A):
-        for i in range(0, n):
-            if x[i] <=0:
-                x[i] = 0
-        dxdt = np.multiply(r, x) + np.multiply(x, np.dot(A, x))
-        for i in range(0, n):
-            if x[i]<=0:
-                    dxdt[i] == 0
-        return dxdt
 
     t = np.linspace(0, t_end, Nt)
-    result = integrate.odeint(derivative, x0, t, args = (r, A))
+    result = lv_LH(x0, t, M, A)
     species_left = 0
     species_stable = 0
     for i in range(n):
@@ -83,15 +78,11 @@ for run in range(runs):
     n_species[run] = species_left
     n_stable[run] = species_stable
 
-    delt = np.dot(A, result[-1, :])
     
-    Jac = np.zeros((n,n))
+    Jac = A+M
     for i in range(n):
+        Jac[i][i] += A_rowsums[i]
 
-        for k in range(n):
-            Jac[i][k] = M[i][k] + result[-1, i]*A[i][k]
-            if(i==k):
-                Jac[i][k] += delt[i]
     Jvals, Jvecs = np.linalg.eig(Jac)
     #print(Jac)
     #print(Jvals)
@@ -99,11 +90,14 @@ for run in range(runs):
     eigs_imag[:, run] = np.imag(Jvals)
     eigs_real_max[run] = np.max(np.real(Jvals))
 
+    if -0.01<np.max(np.real(Jvals))<0.01:
+        print("seed: ", seed, 'max real eigenvalue:', np.max(np.real(Jvals)))
+
 name = str('f5g5muc5mua5')
 
 plt.figure(figsize=(7, 7))
 plt.grid()
-plt.title("eigenvalues of A")
+plt.title("eigenvalues of Jacobian")
 plt.xlabel('real component]')
 plt.ylabel('imaginary component')
 plt.plot(eigs_real, eigs_imag, 'o', ms=2, alpha=.5)
@@ -121,9 +115,9 @@ plt.title("max real eigenvalue vs. number of stable species")
 plt.xlabel('max real component of an eigenvalue')
 plt.ylabel('number of stable species')
 plt.plot(eigs_real_max, n_stable + n_species - n, 'o', ms=3, alpha=.5)
-plt.savefig('figures/lv_LH/fixed_M/maxJvalstable_f5g5muc5mua5.pdf')
+#plt.savefig('figures/lv_LH/fixed_M/maxJvalstable_f5g5muc5mua5.pdf')
 
-
+plt.show()
 
     
 
