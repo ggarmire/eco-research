@@ -11,8 +11,8 @@ n = 10
 x0 = 0.5 * np.ones(n)
 #r = np.random.uniform(low=0, high=1, size=n)
 r = np.ones(n)
-C = 0.5    # connectedness|
-sigma2 = 0.5;       ## variance in off diagonals of interaction matrix
+sigma2 = 0.9**2/n
+C = 1
 t_end = 30     # length of time 
 Nt = 1000
 K = (C*sigma2*n)**0.5

@@ -6,9 +6,18 @@ import random
 from scipy import integrate
 from decimal import Decimal, getcontext
 
+#%% initial conditions 
+def x0_vec(n):
+    np.random.seed(1)
+    x0 = np.random.normal(loc=1, scale=0.1, size=n)
+    for i in range(n):
+        while x0[i] <= 0: 
+            x0[i] = np.random.normal(loc=1, scale=0.1)
+    return x0
 
-#%% A Matrix
+#%% Matrices 
 def A_matrix(n, C, sig2, seed, LH):
+
     # n = number of species 
     # C = connectedness (prob of nonzero a_ij)
     #sig2 = sigma^2 of normal distribution of nonzero a_ij's
@@ -26,11 +35,12 @@ def A_matrix(n, C, sig2, seed, LH):
                 num = random.random()
                 if A[i][j] == 0:
                     if num < C:
-                        A[i][j] = np.random.normal(0, sig2**0.5)
-                        A[i+1][j] = A[i][j]
-                        A[i][j+1] = np.random.normal(0, sig2**0.5)
+                        val = np.random.normal(0, sig2**0.5)
+                        A[i][j] = val
+                        A[i+1][j+1] = val
+                        A[i][j+1] = val
                         #A[i][j+1] = A[i][j]
-                        A[i+1][j+1] = A[i][j+1]
+                        A[i+1][j] = val
     
     if LH == 0:
         for i in range (0,n):
@@ -44,12 +54,6 @@ def A_matrix(n, C, sig2, seed, LH):
 
     #   print(r)
     return A
-
-'''A = A_matrix(4, 0.5, 0.2, 7, LH=1)
-for r in A:
-    print(r)
-
-print(np.max(A))'''
 
 
 def M_matrix(n, muc, mua, f, g):
@@ -69,25 +73,34 @@ def M_matrix(n, muc, mua, f, g):
         
     return M
 
-#M = M_matrix(6, 0.1, 0.2, 0.3, 0.4)
-'''for r in M:
-    print(r)'''
 
-def lv_LH(x0, t, A, M): 
-    
+
+#%% ODE solvers 
+'''def lv_LH(x0, t, A, M): 
     def derivative(x, t, M, A):
-        
-        for i in range(0, len(x0)):
-            if x[i] <= 0:
-                x[i] = 0
         dxdt = np.dot(M, x) + np.multiply(x, np.dot(A, x))
         for i in range(0, len(x0)):
             if x[i] <= 0:
-                dxdt[i] = 0
+                x[i] == 0
+                dxdt[i] == 0
         return dxdt
-    
+    result = integrate.odeint(derivative, x0, t, args = (M, A))
+    return result'''
+
+def lv_LH(x0, t, A, M): 
+    def derivative(x, t, M, A):
+        for i in range(len(x0)):
+            if x[i] <= 0:
+                x[i] = 0
+        dxdt = np.dot(M, x) + np.multiply(x, np.dot(A, x))
+        for i in range(len(x0)):
+            if x[i] <= 0:
+                  dxdt[i] = 0
+        return dxdt
     result = integrate.odeint(derivative, x0, t, args = (M, A))
     return result
+
+
 
 def lv_classic(x0, t, A, r): 
     
@@ -107,6 +120,17 @@ def lv_classic(x0, t, A, r):
     return result
 
 
+#%% Jacobian
+def LH_jacobian(n, A, M):
+    delta = np.diag(np.dot(A, np.ones(n)))
+    J = M + delta + A
+    return J
 
+def LH_jacobian_norowsum(xf, A, M):
+    n = len(xf)
+    delta = np.diag(np.dot(A, xf))
+    Axf = np.multiply(np.outer(xf, np.ones(n)), A)
+    J = M+ delta + Axf
+    return J
 
 

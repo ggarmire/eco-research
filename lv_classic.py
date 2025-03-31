@@ -4,47 +4,33 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import integrate
 from lv_functions import A_matrix
+from lv_functions import x0_vec
 import random 
 
-seed = 75
-#seed = random.randint(0, 1000)
+#seed = 36
+seed = random.randint(0, 1000)
 print("seed: ", seed)
 
-np.random.seed(seed)
-
-
 #%% initial conditions and such 
-n = 20     # number of species 
+n = 10     # number of species 
+x0 = x0_vec(n)
 
-#x0 = np.random.uniform(low=0.1, high = 1, size=(n))
-x0 = 0.5 * np.ones(n)
-#r = np.random.uniform(low=0, high=1, size=n)
 r = np.ones(n)
 C = 1    # connectedness|
-sigma2 = 0.02;       ## variance in off diagonals of interaction matrix
+sigma2 = .9**2/n       ## variance in off diagonals of interaction matrix
 
 t_end = 30     # length of time 
 Nt = 1000
 
 K = (C*sigma2*n)**0.5
-print("x0: ", x0)
-print("r: ", r)
+#print("x0: ", x0)
+#print("r: ", r)
 print("complexity: ", K)
 
 
 
 A = A_matrix(n, C, sigma2, seed, LH=0) 
-
-A_rowsums = np.zeros(n)
-for i in range(n):
-    #print(A[i, :])
-    for j in range(n):
-        A_rowsums[j] += A[j][i]
-
-for i in range(n):
-    r[i] = -A_rowsums[i]        # this is what makes all the equilibrium populations the same. 
-
-print(A_rowsums)
+print(A)
         
 evals, evecs = np.linalg.eig(A)
 
@@ -71,13 +57,11 @@ for num in result[-1, :]:
         count+=1
     
 
-
-print("tfinal: ", t[-1], ", species remaining:", count)
+'''print("tfinal: ", t[-1], ", species remaining:", count)
 print("final populations: ", result[-1, :])
-print("min value in x: ", np.min(result))
+print("min value in x: ", np.min(result))'''
 #print(t)
 plt.figure()
-
 plt.grid()
 plt.title("Species Population over time")
 for i in range(n):

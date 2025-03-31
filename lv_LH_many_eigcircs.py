@@ -28,10 +28,10 @@ eigs_real = np.zeros((n, runs))
 eigs_imag = np.zeros((n, runs))
 eigs_real_max = np.zeros(runs)
 
-muc = 0.5
-mua = 0.5
-f = 1.5
-g = 0.5
+muc = -0.5
+mua = -0.5
+f = 1
+g = 1
 
 
 for run in range(runs):
