@@ -14,24 +14,26 @@ import random
 import math
 
 seed = random.randint(0, 1000)
-seed = 2
+seed = 1
 print("seed: ", seed)
 
 
 #%% initial conditions and such 
-n = 20     # number of species 
-x0 = x0_vec(n)
+n = 4    # number of species 
+x0=x0_vec(n)
+print(x0)
 #x0 = np.ones(n)
 #print('x0: ', x0)
-t = np.linspace(0, 50, 2000)
+t = np.linspace(0, 20, 2000)
 #t = np.linspace(0, 500000, 20000)
 
 
-K_set = 1.12
+K_set = 0.8
 sigma2 = K_set**2/n*2
 C = 1
 
 A = A_matrix(n, C, sigma2, seed, LH=1)
+print(A)
 A_classic = A_matrix(int(n/2), C, sigma2, seed, LH=0)
 #print(A_classic)
 
@@ -51,8 +53,8 @@ f = 1.5
 g = 1
 
 
-xstar = 1
-alpha = 1
+xstar = 0
+alpha = 0.7
 
 M = M_matrix(n, muc, mua, f, g)
 mvals, mvecs = np.linalg.eig(M)
@@ -63,7 +65,7 @@ if xstar == 1:
     xs = np.ones(n)
     for i in range(0, n, 2):
         xs[i] = alpha
-    #print(xs)
+    xs = 1/(1+alpha) * xs
     A_rows = np.dot(A, xs)
     M_rows = np.dot(M, xs)
     scales = -np.divide(np.multiply(A_rows, xs), M_rows)
@@ -124,18 +126,19 @@ print('Max real eigenvalue of Jac:', np.max(np.real(Jvals)))
 
 colors = ['C0', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9']
 
-plot_text = str('$\mu_c =$'+str(muc)+', $\mu_a =$'+str(mua)+', $g =$'+str(g)+', A seed ='+str(seed)+ ', K='+str(K))
+plot_text = str('$\mu_c =$'+str(muc)+', $\mu_a =$'+str(mua)+', $g =$'+str(g)+', $f =$'+str(f)+', A seed ='+str(seed)+ ', K='+str(K))
 plot_text2 = str('Max real eigenvalue of J: '+ str('%.5f'%(np.max(np.real(Jvals)))))
 
 plt.figure()
 
 plt.grid()
 if xstar == 1:
-    title = str('Species Population over time, f='+str(f)+', x*=1, alpha='+str(alpha))
+    title = str('sub-species Population over time, x*=1')
+    title2 = str('Full species Population over time, c+a, x*=1')
 elif xstar ==0: 
-    title = str('Species Population over time, f='+str(f)+', x*/=1')
+    title = str('sub-species Population over time, x*/=1')
+    title2 = str('Full species Population over time, c+a, x*/=1')
 plt.title(title)
-#plt.title("Species Population over time, f=0.49, x*=1")
 for i in range(n):
     if i%2 == 0:
         plt.plot(0, result[0, i], 'o', mfc = 'none', color=colors[math.floor(i/2)], ms = 3)
@@ -155,6 +158,20 @@ plt.legend(handles=legend_elements)
 #plt.ylim(-0.1, 6)
 
 #plt.ylim(min(0, np.min(result)-0.1), 1.1*np.max(result))
+
+plt.figure()
+
+plt.grid()
+plt.title(title2)
+for i in range(n):
+    if i%2 == 0:
+        plt.plot(0, result[0, i]+ result[0, i+1], 'o', mfc = 'none', color=colors[math.floor(i/2)], ms = 3)
+        plt.plot(t, result[:, i]+ result[:, i+1], 'o', mfc = 'none', color=colors[math.floor(i/2)], ms = 3, markevery = (i, 20))       # child (empty)
+plt.xlabel('Time t')
+plt.ylabel('Population density')
+plt.figtext(0.13, 0.12, plot_text)
+plt.figtext(0.3, 0.84, plot_text2)
+
 
 
 plt.show()

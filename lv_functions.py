@@ -21,7 +21,7 @@ def A_matrix(n, C, sig2, seed, LH):
     # n = number of species 
     # C = connectedness (prob of nonzero a_ij)
     #sig2 = sigma^2 of normal distribution of nonzero a_ij's
-    
+    sig = sig2**0.5
     A = np.zeros((n, n))
     random.seed(seed)
     np.random.seed(seed)
@@ -35,7 +35,7 @@ def A_matrix(n, C, sig2, seed, LH):
                 num = random.random()
                 if A[i][j] == 0:
                     if num < C:
-                        val = np.random.normal(0, sig2**0.5)
+                        val = np.random.normal(0, sig)
                         A[i][j] = val
                         A[i+1][j+1] = val
                         A[i][j+1] = val
@@ -49,12 +49,28 @@ def A_matrix(n, C, sig2, seed, LH):
                 num = random.random()
                 if A[i][j] == 0:
                     if num < C:
-                        A[i][j] = np.random.normal(0, sig2**0.5)
+                        A[i][j] = np.random.normal(0, sig)
                         
 
     #   print(r)
     return A
 
+
+
+
+
+
+
+'''seed = random.randint(1, 1000)
+A = A_matrix(4, 1, 0.1, seed, LH=0)
+A_masked = np.ma.masked_equal(A, -1)
+mean = np.mean(A_masked)
+print(A)
+var = true_var_from0(A, 4)
+var_from_mean = np.var(A_masked)
+print('var from 0: ',var)
+print('mean: ', mean)
+print('var from mean:', var_from_mean)'''
 
 def M_matrix(n, muc, mua, f, g):
     # n = number of species 
@@ -72,7 +88,6 @@ def M_matrix(n, muc, mua, f, g):
             M[i+1][i] = g
         
     return M
-
 
 
 #%% ODE solvers 
@@ -100,8 +115,6 @@ def lv_LH(x0, t, A, M):
     result = integrate.odeint(derivative, x0, t, args = (M, A))
     return result
 
-
-
 def lv_classic(x0, t, A, r): 
     
     def derivative(x, t, r, A):
@@ -121,10 +134,13 @@ def lv_classic(x0, t, A, r):
 
 
 #%% Jacobian
-def LH_jacobian(n, A, M):
-    delta = np.diag(np.dot(A, np.ones(n)))
-    J = M + delta + A
+def LH_jacobian(n, A, M, xs):
+    delta = np.diag(np.dot(A, xs))
+    Ax = np.multiply(np.outer(np.ones(n), xs), A)
+
+    J = M + delta + Ax
     return J
+
 
 def LH_jacobian_norowsum(xf, A, M):
     n = len(xf)

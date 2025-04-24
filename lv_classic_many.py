@@ -4,16 +4,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import integrate
 from lv_functions import A_matrix
+from lv_functions import x0_vec
 import random 
 
-n = 10
+n = 2
 
-x0 = 0.5 * np.ones(n)
-#r = np.random.uniform(low=0, high=1, size=n)
-r = np.ones(n)
-sigma2 = 0.9**2/n
+x0 = x0_vec(n)
+sigma2 = 1**2/n
 C = 1
-t_end = 30     # length of time 
+t_end = 50     # length of time 
 Nt = 1000
 K = (C*sigma2*n)**0.5
 print("complexity: ", K)
@@ -36,13 +35,8 @@ for run in range(runs):
     A = A_matrix(n, C, sigma2, seed, LH=0) 
 
     A_rowsums = np.zeros(n)
-    for i in range(n):
-        #print(A[i, :])
-        for j in range(n):
-            A_rowsums[j] += A[j][i]
 
-    for i in range(n):
-        r[i] = -A_rowsums[i]        # this is what makes all the equilibrium populations the same. 
+    r = -np.dot(A, np.ones(n))      # this is what makes all the equilibrium populations the same. 
             
     evals, evecs = np.linalg.eig(A)
 
@@ -64,9 +58,9 @@ for run in range(runs):
     species_left = 0
     species_stable = 0
     for i in range(n):
-        if result[-1, i] > 1e-3:
+        if result[-1, i] > 1e-4:
             species_left+=1
-        if abs(result[-1, i] - result [-2, i]) < 1e4:
+        if abs(result[-1, i] - result [-2, i]) < 1e-4:
             species_stable += 1
     
     n_species[run] = species_left
@@ -74,6 +68,15 @@ for run in range(runs):
     eigs_real[:, run] = np.real(evals)
     eigs_imag[:, run] = np.imag(evals)
     eigs_real_max[run] = np.max(np.real(evals))
+
+    if 0 < np.max(np.real(evals)) and species_left == 10:
+        k = np.argmax(np.real(evals)) 
+        if np.imag(evals)[k] != 0:
+            print('seed:', seed, 'max real eig:', np.max(np.real(evals)), ', species left: ', species_left)
+    
+
+
+
 
 
 print('max imaginary eigenvalue: ', np.max(eigs_imag))
@@ -90,7 +93,7 @@ plt.grid()
 plt.title("max real eigenvalue vs. number of stable species")
 plt.xlabel('max real component of an eigenvalue')
 plt.ylabel('number of stable species')
-plt.plot(eigs_real_max, n_stable + n_species - 20, 'o', ms=3)
+plt.plot(eigs_real_max, n_stable, 'o', ms=3)
 
 
 

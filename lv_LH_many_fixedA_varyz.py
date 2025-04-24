@@ -43,32 +43,18 @@ eigs_imag = np.zeros((n, runs))
 eigs_real_max = np.zeros(runs)
 meigs_real_max = np.zeros(runs)
 
-gs = np.zeros(runs)
+g = 1
 #fs = np.zeros(runs)
-muas = np.zeros(runs)
-mucs = np.zeros(runs)
+mua = -0.5
+muc = -0.5
+f = 1.5
+xstar = 1
 
-fs = np.linspace(0, 2, runs)
-xstar = 0
-
+zs = np.linspace(-muc/g+0.001, -f/mua-0.001, runs)
 
 for run in range(runs):
     seed = run
     np.random.seed(seed)
-
-    #g = np.random.uniform(low=-.5, high = 1)
-    muc = -0.5
-    mua = -0.5
-    g = 1.
-    f = fs[run]
-    if f == -muc:
-        f == -muc + 0.001
-
-
-    fs[run] = f
-    gs[run] = g
-    muas[run] = mua
-    mucs[run] = muc
 
     #print('f:',f,'g:',g)
     M = M_matrix(n, muc, mua, f, g)
@@ -77,8 +63,8 @@ for run in range(runs):
     if xstar == 1:
         xs = np.ones(n)
         for i in range(0, n, 2):
-            xs[i] = alpha
-        print(xs)
+            xs[i] = zs[run]
+        #print(xs)
         A_rows = np.dot(A, xs)
         M_rows = np.dot(M, xs)
         scales = -np.divide(np.multiply(A_rows, xs), M_rows)
@@ -102,7 +88,7 @@ for run in range(runs):
 
     if xstar ==1: 
         #Jac = LH_jacobian(n, A, M)
-        Jac = LH_jacobian_norowsum(result[-1, :], A, M)
+        Jac = LH_jacobian(n, A, M, xs)
     elif xstar ==0:
         Jac = LH_jacobian_norowsum(result[-1, :], A, M)
     Jvals, Jvecs = np.linalg.eig(Jac)
@@ -133,29 +119,32 @@ ax.set_title('Maximum Real Eigenvalue of J, for f and g')
 ax.set_xlabel('f')
 ax.set_ylabel('g')
 ax.set_zlabel('max real eigenvalue')'''
+plot_text = str('$\mu_c =$'+str(muc)+', $\mu_a =$'+str(mua)+', $g =$'+str(g)+', $f =$'+str(f)+', A seed ='+str(seed)+ ', K='+str('%0.3f'%K))
 
-plt.plot(fs, stables, '-b', ms=2, alpha=.5)
-plt.plot(fs, unstables, '-g', ms=2, alpha=.5)
+
+plt.plot(zs, stables, '-b', ms=2, alpha=.5)
+plt.plot(zs, unstables, '-g', ms=2, alpha=.5)
 plt.grid()
-plt.title('Maximum Real Eigenvalue of J, for varied f')
-plt.xlabel('f')
+plt.title('Maximum Real Eigenvalue of J, for varied z')
+plt.xlabel('z')
 plt.ylabel('max real eigenvalue')
-plt.ylim(-2, 50)
+plt.figtext(0.13, 0.12, plot_text)
+plt.ylim(-2, 500)
 
 
 plt.figure(figsize=(6,5))
-plt.plot(fs, n_species, '.b', ms=2, alpha=.5)
+plt.plot(zs, n_species, '.b', ms=2, alpha=.5)
 plt.grid()
-plt.title('# of species left, for varied f, x*=1')
-plt.xlabel('f')
+plt.title('# of species left, for varied z, x*=1')
+plt.xlabel('z')
 plt.ylabel('# of species left ')
 #plt.ylim(-2, 0)
 
 plt.figure(figsize=(6,5))
-plt.plot(fs, meigs_real_max, '.r', ms=2, alpha=.5)
+plt.plot(zs, meigs_real_max, '.r', ms=2, alpha=.5)
 plt.grid()
-plt.title('max real eig of M, for varied f, x*/=1')
-plt.xlabel('f')
+plt.title('max real eig of M, for varied z, x*/=1')
+plt.xlabel('z')
 plt.ylabel('max real eig of M')
 #plt.ylim(-2, 50)
 

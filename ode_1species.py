@@ -3,7 +3,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import integrate
-from lv_matrices import A_matrix
+from lv_functions import A_matrix
 import random 
 
 muc = 0

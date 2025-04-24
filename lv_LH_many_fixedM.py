@@ -15,7 +15,7 @@ n = 20
 x0 = x0_vec(n)
 
 C = 1    # connectedness|
-sigma2 = 1.1**2/n;       ## variance in off diagonals of interaction matrix
+sigma2 = 0.99**2/n;       ## variance in off diagonals of interaction matrix
 t_end = 100     # length of time 
 Nt = 1000
 K = (C*sigma2*n)**0.5
@@ -32,7 +32,7 @@ eigs_real_max = np.zeros(runs)
 
 muc = -0.5
 mua = -0.5
-f = 1
+f = 0.3
 g = 1
 
 
@@ -75,15 +75,15 @@ for run in range(runs):
     eigs_imag[:, run] = np.imag(Jvals)
     eigs_real_max[run] = np.max(np.real(Jvals))
 
-    '''if -0.05<np.max(np.real(Jvals))<0:
+    if -0.15<np.max(np.real(Jvals))<-0.1:
         if species_left == 20:
             print("seed: ", seed, 'max real eigenvalue:', np.max(np.real(Jvals)))
             print('max eig of A: ', np.max(np.real(Avals)))
-            #print('species remaining: ', species_left)'''
-    if 0 < np.max(np.real(Avals)) < 0.1: 
+            #print('species remaining: ', species_left)
+    '''if 0 < np.max(np.real(Avals)) < 0.1: 
         if species_left == 20:
             print("seed: ", seed, 'max real eigenvalue:', np.max(np.real(Jvals)))
-            print('max eig of A: ', np.max(np.real(Avals)))
+            print('max eig of A: ', np.max(np.real(Avals)))'''
 
 
 name = str('f5g5muc5mua5')
