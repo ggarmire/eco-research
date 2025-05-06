@@ -12,8 +12,8 @@ import random
 import math
 
 #region variables to change
-K_set = 1
-n = 50
+K_set = 0.1
+n = 36
 C = 1
 sigma2 = K_set**2/n*2
 #sigma2 = 0.04
@@ -28,7 +28,7 @@ randoms = []
 
 One = np.ones(n)
 
-runs = 500
+runs = 1000
 
 s = int(n/2)
 
@@ -70,7 +70,7 @@ for run in range(runs):
         print(run)
 
     A = A_matrix(n, C, sigma2, seed, LH=1) 
-    print(A)
+    #print(A)
     A_classic = A_matrix(s, C, sigma2, seed, LH=0)
 
     A_rs = np.dot(A, One)
@@ -83,10 +83,10 @@ for run in range(runs):
 
     A_eigs_classic.extend(Avals_classic)
 
-    for i in range(s):
+    '''for i in range(s):
         rand = np.random.normal(0, (s-1)*sigma2) - 2
         randoms.append(rand)
-        randoms.append(rand)
+        randoms.append(rand)'''
 
     #if abs(np.max(np.real(Avals))) <= 1e-10:
     #    print(seed)
@@ -104,23 +104,31 @@ for i in range(len(A_eigs_classic)):
         A_eigs_realaxis_classic.append(A_eigs_classic[i].real)
 
 
+# fit histogram of row sums 
 c_rs, b_rs = np.histogram(np.real(A_rowsums), bins=200)
+
+
+
 c_rand, b_rand = np.histogram(randoms, bins=200)
+b_rs_centers = np.real((b_rs[:-1] + b_rs[1:]) / 2)
 
-A_rs_int = np.sum(c_rs)
-c_rs = c_rs * (1/A_rs_int)
+p0_rs = [float(np.max(c_rs)), -2, 4*(s-1)*sigma2]
 
-A_rand_int = np.sum(c_rand)
+pars_rs, cov_rs = curve_fit(gaussian, b_rs_centers, c_rs, p0_rs)
+
+#A_rs_int = np.sum(c_rs)
+#c_rs = c_rs * (1/A_rs_int)
+
+'''A_rand_int = np.sum(c_rand)
 c_rand = c_rand * (1/A_rand_int)
 
-b_crs_centers = np.real((b_rs[:-1] + b_rs[1:]) / 2)
-b_rand_centers = np.real((b_rand[:-1] + b_rand[1:]) / 2)
+b_rand_centers = np.real((b_rand[:-1] + b_rand[1:]) / 2)'''
 
-p0_rs = [2, -2, 2*(s-1)*sigma2]
-p0_rs2 = [2, 2*(s-1)*sigma2]
+
+#p0_rs2 = [2, 2*(s-1)*sigma2]
 #p0_rs = [(sigma2*2*math.pi)**(-0.5), -2, (s-1)*sigma2]#
-pars_rs, cov_rs = curve_fit(gaussian, b_crs_centers, c_rs, p0_rs)
-pars_rs2, cov_rs2 = curve_fit(gauss2, b_crs_centers, c_rs, p0_rs2)
+
+#pars_rs2, cov_rs2 = curve_fit(gauss2, b_rs_centers, c_rs, p0_rs2)
 
 
 plot_text = str('K = '+str(K_set)+', s = '+str(s)+'; '+str(runs)+' matrices')
@@ -128,15 +136,20 @@ fsize = (7, 7)
 
 
 plt.figure(figsize=fsize)
-plt.plot(b_crs_centers, c_rs)
-plt.plot(b_rand_centers, c_rand)
-plt.plot(b_crs_centers, gaussian(b_crs_centers, *pars_rs), '-m')
+plt.plot(b_rs_centers, c_rs, label = 'rowsums of A_LH')
+#plt.plot(b_rand_centers, c_rand)
+plt.plot(b_rs_centers, gaussian(b_rs_centers, *pars_rs), linestyle='dashed', label = 'fit of rowsum dist')
+plt.plot(b_rs_centers, gaussian(b_rs_centers, pars_rs[0], p0_rs[1], p0_rs[2]), linestyle='dotted', label = 'N~(-2, 4(s-1)sig^2')
+plt.xlabel('Rowsum of A')
+plt.ylabel('counts')
+plt.legend()
+
 #plt.plot(b_crs_centers, gauss2(b_crs_centers, *pars_rs2), '-b')
 #plt.plot(b_crs_centers, gaussian(b_crs_centers, pars_rs[0], -2, (s-1)*sigma2), '-r')
 print('predicted: ',p0_rs, ', actual: ',pars_rs)
 
 
-
+'''
 plt.figure(figsize=fsize)
 plt.title('Eigenvalues of A matrix')
 plt.plot(np.real(A_eigs), np.imag(A_eigs), '.b', alpha=0.3, label='A_LH')
@@ -177,7 +190,7 @@ plt.ylabel('counts')
 plt.figtext(0.13, 0.86, plot_text)
 plt.legend()
 plt.grid()
-
+'''
 
 
 plt.show()

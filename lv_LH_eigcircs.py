@@ -12,8 +12,8 @@ from lv_functions import LH_jacobian
 import random 
 
 #region variables to change
-K_set = 1
-muc = -0.5
+K_set = 0.2
+muc = -0.1
 mua = -0.5
 f = 1.5
 g = 1
@@ -31,6 +31,7 @@ runs = 1000
 x0 = x0_vec(n)
 C = 1
 sigma2 = K_set**2/n*2
+print('sigma:', sigma2**0.5)
 t_end = 30     # length of time 
 Nt = 1000
 M_pre = M_matrix(n, muc, mua, f, g)
@@ -45,6 +46,7 @@ eigs = []
 eigs_real_max = []
 
 eigs_M = []
+eigs_Mp = []
 eigs_A = []
 
 A_rowsums = []
@@ -72,8 +74,12 @@ for run in range(runs):
         M = np.multiply(M_pre, np.outer(scales, np.ones(n)))
         A_rowsums.extend(A_rows)
 
+    Mp = M + np.diag(A_rows)
     Mvals, Mvecs = np.linalg.eig(M)
+    Mpvals, Mpvecs = np.linalg.eig(Mp)
+
     eigs_M.extend(Mvals)
+    eigs_Mp.extend(Mpvals)
 
     Avals, Avecs = np.linalg.eig(A)
     eigs_A.extend(Avals)
@@ -100,6 +106,7 @@ eigs_real_axis = []     # eigenvalues on the real line
 eigs_complex = []       # eigenvalues not on the real line
 
 eigs_real_axis_M = [] 
+eigs_real_axis_Mp = [] 
 eigs_real_axis_A = [] 
 
 
@@ -112,6 +119,8 @@ for i in range(len(eigs_imag)):
         eigs_complex.append(eigs[i])
     if abs(eigs_M[i].imag) <= 1e-7:
         eigs_real_axis_M.append(eigs_M[i].real)
+    if abs(eigs_Mp[i].imag) <= 1e-7:
+        eigs_real_axis_Mp.append(eigs_Mp[i].real)
     if abs(eigs_A[i].imag) <= 1e-7:
         eigs_real_axis_A.append(eigs_A[i].real)
     
@@ -126,8 +135,8 @@ i_mean = np.mean(np.imag(eigs_complex))
 # fit histograms: 
 
 # histograms: 
-nbins1 = 500
-nbins2 = 50
+nbins1 = 70
+nbins2 = 70
 histrange = (np.min(eigs_real), max(np.max(eigs_real), np.max(eigs_real_axis_M)))
 
 def gaussian_box(x, A, mu, sigma, h, c, w):
@@ -170,7 +179,7 @@ counts, bin_edges = np.histogram(np.real(eigs_real_axis), bins=nbins1, range = h
 bin_centers = np.real((bin_edges[:-1] + bin_edges[1:]) / 2)
 
 # fit the gaussian part with a gauss:
-circ1 = -2 - 2*K_set - 0.5
+'''circ1 = -2 - 2*K_set - 0.5
 circ2 = -2 + 2*K_set + 0.5
 b1 = 0 
 b2 = 0
@@ -178,7 +187,13 @@ for i in range(len(bin_centers)):
     if bin_centers[i] < circ1: 
         b1 = i
     elif bin_centers[i] < circ2:
-        b2 = i
+        b2 = i'''
+
+b1 = np.digitize(-2 - 2.5*K_set, bin_edges)
+b2 = np.digitize(-2 + 2.5*K_set, bin_edges)
+
+#print(b1, b2)
+
 r1 = bin_centers[:b1]
 c1 = counts[:b1]
 r2 = bin_centers[b2:]
@@ -188,8 +203,14 @@ fitx.extend(r1)
 fitx.extend(r2)
 fity.extend(c1); fity.extend(c2)
 
-parsg, covg = curve_fit(gaussian, fitx, fity, p01g)
-print('K: ', K_set, ', parsg: ', parsg)
+parsg, covg = curve_fit(gaussian, fitx, fity, p01g, maxfev=5000)
+print('K: ', K_set, ', pars of gauss of J: ', parsg)
+
+m1 = 1              
+m2 = (mua*muc - f*g)/((mua+g)*(muc+f))      # these are the eigenvlaues of the 
+
+print('eigs of M:', m1, m2)
+print('mean diff: ', parsg[1] - m2, '; mean ratio:', parsg[1]/m2)
 
 
 #countsm, bin_edgesm = np.histogram(np.real(eigs_real_axis_M), bins=nbins1, range = histrange)
@@ -200,7 +221,7 @@ print('K: ', K_set, ', parsg: ', parsg)
 counts2, bin_edges2 = np.histogram(np.real(eigs_complex), bins=nbins2)
 
 total_circ = np.sum(counts)
-print('total circ = ', total_circ)
+#print('total circ = ', total_circ)
 
 '''# fit the circle hist
 
@@ -268,7 +289,7 @@ fsize = (7,7)
 
 #region plotting 
 
-
+'''
 # fig 1: distribution of all eigenvalues 
 plt.figure(figsize=fsize)
 plt.grid()
@@ -281,15 +302,16 @@ plt.figtext(0.13, 0.86, plot_text_2)
 #plt.xlim([-15, 3])
 #plt.ylim([-9, 9])
 #plt.tight_layout()
-
+'''
 
 # fig 2: histogram of the eigenvalues on the real axis. im(eig)=0
 plt.figure(figsize=fsize)
 #constrained_layrueout = T
 
 plt.hist(np.real(eigs_real_axis), bins=nbins1, range = histrange, label='J')
-plt.hist(np.real(eigs_real_axis_M), bins=nbins1, range = histrange, alpha = 0.4, label = 'M')
-#plt.hist(np.real(eigs_real_axis_A), bins=nbins1, range = histrange, alpha = 0.7, label = 'A')
+plt.hist(np.real(eigs_real_axis_M), bins=nbins1, range = histrange, histtype='step', alpha = 1, label = 'M')
+plt.hist(np.real(eigs_real_axis_Mp), bins=nbins1, range = histrange, histtype='step', alpha = 1, label = 'M prime')
+plt.hist(np.real(eigs_real_axis_A), bins=nbins1, range = histrange, histtype='step', alpha = 1, label = 'A')
 plt.title(hist1_title)
 plt.figtext(0.13, 0.86, plot_text)
 plt.figtext(0.13, 0.84, text_fitpars)
@@ -304,7 +326,7 @@ plt.plot(bin_centers, gaussian(bin_centers, *parsg), '-r')
 plt.legend()
 #plt.grid()
 
-
+'''
 plt.figure(figsize=fsize)
 plt.hist(np.real(eigs_complex), bins=nbins2)#, range=histrange)
 plt.title(hist2_title)
@@ -332,7 +354,7 @@ plt.plot(b_crs_centers, gaussian(b_crs_centers, *pars_rs), '-m')
 plt.plot(b_crs_centers, gaussian(b_crs_centers, pars_rs[0], -2, 2*(n/2-1)*sigma2), '-r')
 print('predicted: ',p0_rs, ', actual: ',pars_rs)
 #plt.grid()
-
+'''
 
 # plot of all the real components, regardless of being on the real axis 
 '''plt.figure(figsize=fsize)

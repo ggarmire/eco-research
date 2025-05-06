@@ -19,7 +19,7 @@ print("seed: ", seed)
 
 
 #%% initial conditions and such 
-n = 20     # number of species 
+n = 6     # number of species 
 x0 = x0_vec(n)
 #x0 = np.ones(n)
 #print('x0: ', x0)
@@ -38,7 +38,7 @@ A_classic = A_matrix(int(n/2), C, sigma2, seed, LH=0)
 K = (C*sigma2*n/2)**0.5
 print("complexity (classic): ", K)
 #print("A:"); print(A)
-Avals, Avecs = np.linalg.eig(A_classic)
+Avals, Avecs = np.linalg.eig(A)
 #print('real eigs:',  np.real(Avals))
 
 A_rowsums = np.dot(A, np.ones(n))
@@ -73,6 +73,11 @@ print('M after scaling :'); print(M[0:4, 0:4])
 # run function here: 
 result = lv_LH(x0, t, A, M)
 
+print('eigenvalues of M:', mvals)
+print('eigenvalues of A:', Avals)
+print('eigenvectors of M:', mvecs)
+print('eigenvectors of A:', Avecs)
+
 
 
 #result = integrate.odeint(derivative, x0, t, args = (M, A))
@@ -84,7 +89,7 @@ xf = result[-1, :]
 
 
 
-print("final populations: ")
+#print("final populations: ")
 #print(xf)
 
 #%% Stats: 
@@ -113,8 +118,8 @@ elif xstar ==0:
 Jvals, Jvecs = np.linalg.eig(Jac)
 #Jvals2, Jvecs2 = np.linalg.eig(Jac2)
 #print('Eigenvalues of Jacobian: \n', Jvals)
-print('Max real eigenvalue of A:', np.max(np.real(Avals)))
-print('Max real eigenvalue of Jac:', np.max(np.real(Jvals)))
+#print('Max real eigenvalue of A:', np.max(np.real(Avals)))
+#print('Max real eigenvalue of Jac:', np.max(np.real(Jvals)))
 #print('Max real eigenvalue of Jac2:', np.max(np.real(Jvals2)))
 
 
@@ -157,4 +162,4 @@ plt.legend(handles=legend_elements)
 #plt.ylim(min(0, np.min(result)-0.1), 1.1*np.max(result))
 
 
-plt.show()
+#plt.show()

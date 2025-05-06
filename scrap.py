@@ -1,6 +1,6 @@
 import numpy as np
 import random
-
+'''
 runs = 10
 the1 = 0
 the0 = 0
@@ -27,5 +27,5 @@ for i in range(runs):
 print('the1: ', the1)
 print('the0: ', the0)
 print(' was bigger than 1:', bigger1)
-
-
+'''
+print(list(range(10, 100, 4)) + list(range(102, 200, 30)))

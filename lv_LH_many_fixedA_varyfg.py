@@ -49,7 +49,7 @@ muas = np.zeros(runs)
 mucs = np.zeros(runs)
 
 fs = np.linspace(0, 2, runs)
-xstar = 0
+xstar = 1
 
 
 for run in range(runs):
@@ -77,8 +77,8 @@ for run in range(runs):
     if xstar == 1:
         xs = np.ones(n)
         for i in range(0, n, 2):
-            xs[i] = alpha
-        print(xs)
+            xs[i] = 1
+        #print(xs)
         A_rows = np.dot(A, xs)
         M_rows = np.dot(M, xs)
         scales = -np.divide(np.multiply(A_rows, xs), M_rows)
@@ -101,8 +101,8 @@ for run in range(runs):
     n_stable[run] = species_stable
 
     if xstar ==1: 
-        #Jac = LH_jacobian(n, A, M)
-        Jac = LH_jacobian_norowsum(result[-1, :], A, M)
+        Jac = LH_jacobian(n, A, M, xs)
+        #Jac = LH_jacobian_norowsum(result[-1, :], A, M)
     elif xstar ==0:
         Jac = LH_jacobian_norowsum(result[-1, :], A, M)
     Jvals, Jvecs = np.linalg.eig(Jac)
