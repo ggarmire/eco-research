@@ -13,12 +13,12 @@ import random
 
 #region variables to change
 K_set = 0.2
-muc = -0.1
+muc = -0.5
 mua = -0.5
 f = 1.5
 g = 1
 
-z = 1
+z = 0.51
 xstar = 1
 n = 50
 
@@ -50,9 +50,13 @@ eigs_Mp = []
 eigs_A = []
 
 A_rowsums = []
+Ars_max = []
 
 
-
+maxeig_J = []
+maxeig_A = []
+maxeig_M = []
+maxeig_Mp = []
 
 
 #endregion 
@@ -73,10 +77,13 @@ for run in range(runs):
         scales = -np.divide(np.multiply(A_rows, xs), M_rows)
         M = np.multiply(M_pre, np.outer(scales, np.ones(n)))
         A_rowsums.extend(A_rows)
+        Ars_max.append(np.max(A_rows))
 
-    Mp = M + np.diag(A_rows)
+        Mp = M + np.diag(A_rows)
+        Mpvals, Mpvecs = np.linalg.eig(Mp)
+
     Mvals, Mvecs = np.linalg.eig(M)
-    Mpvals, Mpvecs = np.linalg.eig(Mp)
+    
 
     eigs_M.extend(Mvals)
     eigs_Mp.extend(Mpvals)
@@ -93,7 +100,12 @@ for run in range(runs):
 
     eigs.extend(Jvals)
 
-    eigs_real_max.append(np.max(np.real(Jvals)))
+    Avalsm = np.ma.masked_inside(Avals, -1e-10, 1e-10)
+    Mpvalsm = np.ma.masked_inside(Mpvals, -1e-10, 1e-10)
+
+    maxeig_J.append(np.max(np.real(Jvals)))
+    maxeig_A.append(np.max(np.real(Avalsm)))
+    maxeig_Mp.append(np.max(np.real(Mpvalsm)))
 
     
 #endregion
@@ -170,13 +182,14 @@ def circ(x, r, h, c):
 
     
 #p02 = [runs/4, -6.25, .5, r_mean, runs/7, 1]
-p01g = [125, -5, 16]
+p01g = [1250, -80, 16]
 
 p01gm = [1700, -4.25, 1]
     
 
 counts, bin_edges = np.histogram(np.real(eigs_real_axis), bins=nbins1, range = histrange)
 bin_centers = np.real((bin_edges[:-1] + bin_edges[1:]) / 2)
+print('bin width = ', bin_edges[1]-bin_edges[0])
 
 # fit the gaussian part with a gauss:
 '''circ1 = -2 - 2*K_set - 0.5
@@ -267,8 +280,11 @@ hist1_title = str('real component of eigs ON the real axis:'+str(int(n/2))+'*2, 
 hist2_title = str('real component of eigs OFF the real axis:'+str(int(n/2))+'*2, z='+str(z)+', K='+str(K_set))
 
 plot_text = str('$\u03bc_c =$'+str(muc)+', $\u03bc_a =$'+str(mua)+', $f=$'+str(f)+', $g =$'+str(g)+'; '+str('%.0f'%(np.max(nzeros/n/runs*100)))+'% on x=0')
-plot_text_2 = str('centered at real component ='+str(r_mean))
+plot_text_2 = str('circle centered at real component ='+str(r_mean))
 text_fitpars = str('J fit mean: '+str('%0.3f'%parsg[1])+', sigma^2: '+str('%0.3f'%parsg[2])+', A= '+str('%0.3f'%parsg[0]))
+
+box_par = dict(boxstyle='square', facecolor='white')
+text_vars = str("$\lambda_2'=$"+ str(m2-1) + '\n $\sigma_a =$'+ str(sigma2**0.5)+'\n s = '+str(n/2))
 #text_fitpars_M = str('M fit mean: '+str('%0.3f'%parsgm[1])+', sigma^2: '+str('%0.3f'%parsgm[2])+', A= '+str('%0.3f'%parsgm[0]))
 
 
@@ -277,10 +293,12 @@ hist2_text = str('mean at '+ str('%0.3f'%r_mean)+ ', '+str(total_circ)+' counts'
 max_ax = np.max(eigs_imag) + 3
 min_ax = np.min(eigs_imag) - 3
 
-fsize = (7,7)
+fsize = (6,6)
 
 
-
+min_jvals = np.min(maxeig_J)
+max_jvals = np.max(maxeig_J)
+yjvals = np.linspace(min_jvals-0.2, max_jvals+0.2, 5)
 
 
 #endregion
@@ -289,7 +307,7 @@ fsize = (7,7)
 
 #region plotting 
 
-'''
+
 # fig 1: distribution of all eigenvalues 
 plt.figure(figsize=fsize)
 plt.grid()
@@ -298,23 +316,23 @@ plt.xlabel('real component')
 plt.ylabel('imaginary component')
 plt.plot(eigs_real, eigs_imag, 'o', ms=2, alpha=.5)
 plt.figtext(0.13, 0.12, plot_text)
-plt.figtext(0.13, 0.86, plot_text_2)
+#plt.figtext(0.13, 0.86, plot_text_2)
 #plt.xlim([-15, 3])
 #plt.ylim([-9, 9])
 #plt.tight_layout()
-'''
+
 
 # fig 2: histogram of the eigenvalues on the real axis. im(eig)=0
 plt.figure(figsize=fsize)
 #constrained_layrueout = T
 
 plt.hist(np.real(eigs_real_axis), bins=nbins1, range = histrange, label='J')
-plt.hist(np.real(eigs_real_axis_M), bins=nbins1, range = histrange, histtype='step', alpha = 1, label = 'M')
+#plt.hist(np.real(eigs_real_axis_M), bins=nbins1, range = histrange, histtype='step', alpha = 1, label = 'M')
 plt.hist(np.real(eigs_real_axis_Mp), bins=nbins1, range = histrange, histtype='step', alpha = 1, label = 'M prime')
 plt.hist(np.real(eigs_real_axis_A), bins=nbins1, range = histrange, histtype='step', alpha = 1, label = 'A')
 plt.title(hist1_title)
-plt.figtext(0.13, 0.86, plot_text)
-plt.figtext(0.13, 0.84, text_fitpars)
+plt.figtext(0.13, 0.69, plot_text)
+plt.figtext(0.13, 0.66, text_fitpars)
 #
 # plt.figtext(0.13, 0.82, text_fitpars_M)
 #plt.xlabel('real component of eigenvalue')
@@ -324,7 +342,41 @@ plt.plot(bin_centers, gaussian(bin_centers, *parsg), '-r')
 #plt.plot(bin_centers, gaussian_box(bin_centers, *pars), '-m')
 #plt.tight_layout()
 plt.legend()
-#plt.grid()
+plt.grid()
+
+
+#figure: max eig of A/Mp vs max eig of J
+plt.figure(figsize=fsize)
+plt.plot(yjvals, yjvals, '--', label= 'x=y')
+plt.plot(maxeig_A, maxeig_J, '.', label = 'A')
+plt.plot(maxeig_Mp, maxeig_J, '.', label = "M'")
+plt.grid()
+plt.legend(loc='upper left')
+plt.xlabel(' Max (nonzero) eigenvalue of A, Mprime')
+plt.ylabel('Max eigenvalue of J')
+plt.figtext(0.15, 0.15, text_vars, bbox=box_par)
+
+
+#figure: max eig of A vs max eig ofMp
+plt.figure(figsize=fsize)
+plt.plot(maxeig_A, maxeig_Mp, '.')
+plt.grid()
+plt.xlabel(' Max (nonzero) eigenvalue of A')
+plt.ylabel('Max eigenvalue of Mprime')
+plt.figtext(0.15, 0.15, text_vars, bbox=box_par)
+
+
+
+#figure: max rowsum of A vs max nonzro eigenvalue of M'
+plt.figure(figsize=fsize)
+#plt.plot(yjvals, yjvals, '--', label= 'x=y')
+plt.plot(Ars_max, maxeig_Mp, '.', label = "M'")
+plt.grid()
+plt.legend(loc='upper left')
+plt.xlabel(' Max rowsum of A')
+plt.ylabel('Max eigenvalue of M')
+
+
 
 '''
 plt.figure(figsize=fsize)
@@ -340,7 +392,7 @@ plt.figure(figsize=fsize)
 plt.title('Real axis eigenvalues not in the gaussian')
 y_rect = counts-gaussian(bin_centers, *parsg)
 plt.plot(bin_centers, y_rect, '-b')
-#plt.grid()
+#plt.grid()'''
 
 plt.figure(figsize=fsize)
 c_rs, b_rs = np.histogram(np.real(A_rowsums), bins=200)
@@ -354,7 +406,8 @@ plt.plot(b_crs_centers, gaussian(b_crs_centers, *pars_rs), '-m')
 plt.plot(b_crs_centers, gaussian(b_crs_centers, pars_rs[0], -2, 2*(n/2-1)*sigma2), '-r')
 print('predicted: ',p0_rs, ', actual: ',pars_rs)
 #plt.grid()
-'''
+
+
 
 # plot of all the real components, regardless of being on the real axis 
 '''plt.figure(figsize=fsize)

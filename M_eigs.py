@@ -12,7 +12,7 @@ from lv_functions import LH_jacobian
 import random 
 
 #region variables to change
-K_set = 0.2
+K_set = 0.4
 muc = -0.3
 mua = -0.5
 f = 1.5
@@ -53,6 +53,8 @@ print('eigs of M, before random number: ', eigs_M_unscaled)
 print('eigs of M+I, before scaling: ', eigs_M_unscaled_minusI)
 #endregion 
 
+Ars_max = []
+Meig_max = []
 
 # region loop 
 for run in range(runs):
@@ -78,6 +80,12 @@ for run in range(runs):
 
     Mdeltvals, Mdeltvecs = np.linalg.eig(Mdelt)
     eigs_Mdelt.extend(Mdeltvals)
+
+    MdeltM = np.ma.masked_inside(Mdeltvals, -1e-10, 1e-10)
+
+    Ars_max.append(np.max(A_rows))
+    Meig_max.append(np.max(MdeltM))
+
 
 
     
@@ -170,6 +178,22 @@ plt.grid()
 plt.plot(bc_mdelt, counts_mdelt, label='M+delta')
 plt.plot(bc_mdelt, gaussian(bc_mdelt, *p0delt), label = 'fit guess')
 plt.legend()
+
+x1 = np.min(Ars_max)
+x2 = np.max(Ars_max)
+space = np.linspace(x1, x2,10)
+spacey = -m2delt * space
+
+
+plt.figure()
+plt.plot(Ars_max, Meig_max, '.', label = "M' eigenvalues")
+plt.plot(space, spacey, '--', label = "y= -$\lambda_2'$*x")
+plt.xlabel('Max row sum in A')
+plt.ylabel('Max eigenvalue of M')
+plt.legend()
+plt.grid()
+
+
 
 print('pars for delt+m: ', p0delt)
 

@@ -8,8 +8,9 @@ from lv_functions import x0_vec
 from lv_functions import lv_classic
 import random 
 
-seed = 1
+
 seed = random.randint(0, 1000)
+#seed = 360
 print("seed: ", seed)
 
 xstar = 1
@@ -18,14 +19,14 @@ xstar = 1
 n = 10     # number of species 
 x0 = x0_vec(n)
 
-K_set = 1.11
+K_set = 1.1
 
 
 C = 1    # connectedness|
 sigma2 = K_set**2/n       ## variance in off diagonals of interaction matrix
 
 t_end = 50     # length of time 
-Nt = 1000
+Nt = 2000
 
 K = (C*sigma2*n)**0.5
 
@@ -44,10 +45,11 @@ if xstar == 1:
     r = -np.dot(A, np.ones(n))
 elif xstar == 0:
     r = np.ones(n)
-
-
+print('max rowsum:', np.max(-r))
+print(r)
 
 evals, evecs = np.linalg.eig(A)
+print('max eigenvalue:', np.max(np.real(evals)))
 
 t = np.linspace(0, t_end, Nt)
 result = lv_classic(x0, t, A, r)

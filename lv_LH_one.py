@@ -14,22 +14,23 @@ import random
 import math
 
 seed = random.randint(0, 1000)
-seed = 2
+#seed = 680
 print("seed: ", seed)
 
 
 #%% initial conditions and such 
-n = 6     # number of species 
+n = 20     # number of species 
+s = n / 2
 x0 = x0_vec(n)
 #x0 = np.ones(n)
 #print('x0: ', x0)
 t = np.linspace(0, 50, 2000)
 #t = np.linspace(0, 500000, 20000)
 
-
-K_set = 1.12
-sigma2 = K_set**2/n*2
+sigma2 = 0.0
 C = 1
+K_set = (s *C * sigma2)**0.5
+
 
 A = A_matrix(n, C, sigma2, seed, LH=1)
 A_classic = A_matrix(int(n/2), C, sigma2, seed, LH=0)
@@ -42,7 +43,7 @@ Avals, Avecs = np.linalg.eig(A)
 #print('real eigs:',  np.real(Avals))
 
 A_rowsums = np.dot(A, np.ones(n))
-print('A rowsums:', A_rowsums)
+print('max A rowsums:', np.max(A_rowsums))
 
 # for m matrix:
 muc = -0.5
@@ -52,11 +53,12 @@ g = 1
 
 
 xstar = 1
-alpha = 1
+alpha = 0.7
 
 M = M_matrix(n, muc, mua, f, g)
 mvals, mvecs = np.linalg.eig(M)
-print('max real eig of M:', np.max(np.real(mvals)))
+
+#print('max real eig of M:', np.max(np.real(mvals)))
 #print('M:'); print(M)""
 #M_rowsums = np.dot(M, np.ones(n))
 if xstar == 1:
@@ -68,15 +70,22 @@ if xstar == 1:
     M_rows = np.dot(M, xs)
     scales = -np.divide(np.multiply(A_rows, xs), M_rows)
     M = np.multiply(M, np.outer(scales, np.ones(n)))
+
+    Mprime = M + np.diag(A_rows)
+    mpvals, mpvecs = np.linalg.eig(Mprime)
+
 print('M after scaling :'); print(M[0:4, 0:4])
+print('mpvals:', mpvals)
 
 # run function here: 
 result = lv_LH(x0, t, A, M)
 
-print('eigenvalues of M:', mvals)
-print('eigenvalues of A:', Avals)
-print('eigenvectors of M:', mvecs)
-print('eigenvectors of A:', Avecs)
+#print('eigenvalues of M:', mvals)
+#print('eigenvalues of A:', Avals)
+#print('eigenvectors of M:', mvecs)
+#print('eigenvectors of A:', Avecs)
+
+#print('DIVIDED:', np.divide(mvecs, Avecs))
 
 
 
@@ -107,7 +116,7 @@ for i in range(n):
 
 #print("juvinile fractions: ", z)
 
-#print("tfinal: ", t[-1], ", species remaining:", species_left, "sepcies stable: ", species_stable)
+print("tfinal: ", t[-1], ", species remaining:", species_left, "sepcies stable: ", species_stable)
 
 #%% Calculate the Jacobian
 if xstar ==1:
@@ -129,14 +138,25 @@ Jvals, Jvecs = np.linalg.eig(Jac)
 
 colors = ['C0', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9']
 
-plot_text = str('$\mu_c =$'+str(muc)+', $\mu_a =$'+str(mua)+', $g =$'+str(g)+', A seed ='+str(seed)+ ', K='+str(K))
-plot_text2 = str('Max real eigenvalue of J: '+ str('%.5f'%(np.max(np.real(Jvals)))))
+plot_text = str('$\mu_c =$'+str(muc)+', $\mu_a =$'+str(mua)+', $f =$'+str(f)+', $g =$'+str(g)+', A seed ='+str(seed)+ ', K='+str('%.3f'%K))
+if xstar == 1:
+    plot_text2 = str('Max real eigenvalue of J: '+ str('%.3f'%(np.max(np.real(Jvals)))) + 
+                    '\n Max real eigenvalue of Mprime: '+ str('%.3f'%(np.max(np.real(mpvals))))
+                    +'\n Max real eigenvalue of A: '+ str('%.3f'%(np.max(np.real(Avals)))))
+elif xstar == 0:
+    plot_text2 = str('Max real eigenvalue of J: '+ str('%.3f'%(np.max(np.real(Jvals)))) + 
+                    '\n Max real eigenvalue of M (unscaled): '+ str('%.3f'%(np.max(np.real(mvals))))
+                    +'\n Max real eigenvalue of A: '+ str('%.3f'%(np.max(np.real(Avals)))))
+
+box_par = dict(boxstyle='square', facecolor='white', alpha = 0.5)
+
+
 
 plt.figure()
 
 plt.grid()
 if xstar == 1:
-    title = str('Species Population over time, f='+str(f)+', x*=1, alpha='+str(alpha))
+    title = str('Species Population over time, N=2S='+str(n)+', x*=1, z = '+str(alpha))
 elif xstar ==0: 
     title = str('Species Population over time, f='+str(f)+', x*/=1')
 plt.title(title)
@@ -151,7 +171,10 @@ for i in range(n):
 plt.xlabel('Time t')
 plt.ylabel('Population density')
 plt.figtext(0.13, 0.12, plot_text)
-plt.figtext(0.3, 0.84, plot_text2)
+plt.figtext(0.4, 0.6, plot_text2, bbox=box_par)
+#plt.figtext(0.5, 0.80, plot_text3)
+#plt.figtext(0.5, 0.76, plot_text4)
+plt.semilogx
 
 legend_elements = [Line2D([0], [0], marker = 'o', color='C0', mfc = 'none', label='child'),
                    Line2D([0], [0], marker = 'o', color='C0', label='adult')]
@@ -162,4 +185,4 @@ plt.legend(handles=legend_elements)
 #plt.ylim(min(0, np.min(result)-0.1), 1.1*np.max(result))
 
 
-#plt.show()
+plt.show()
