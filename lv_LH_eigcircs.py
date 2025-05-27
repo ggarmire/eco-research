@@ -9,38 +9,38 @@ from lv_functions import M_matrix
 from lv_functions import lv_LH
 from lv_functions import x0_vec
 from lv_functions import LH_jacobian
+from lv_functions import LH_jacobian_norowsum
 import random 
 
 #region variables to change
-K_set = 0.2
+K_set = 0.3
 muc = -0.5
 mua = -0.5
 f = 1.5
 g = 1
 
-z = 0.51
+z = 1
 xstar = 1
 n = 50
 
-runs = 1000
+runs = 2000
 #endregion
 
 
 #region set up other variables
-
+s = n/2
 x0 = x0_vec(n)
 C = 1
 sigma2 = K_set**2/n*2
-print('sigma:', sigma2**0.5)
+print('n:', n, ', sigma:', '%.0f'%(sigma2**0.5))
 t_end = 30     # length of time 
 Nt = 1000
 M_pre = M_matrix(n, muc, mua, f, g)
 xs = np.ones(n)
 for i in range(0, n, 2):
     xs[i] = z
-#eigs_real = np.zeros((n, runs))
-#eigs_imag = np.zeros((n, runs))
-#eigs_real_max = np.zeros(runs)
+
+t = np.linspace(0, 200, 200)
 
 eigs = []
 eigs_real_max = []
@@ -58,6 +58,10 @@ maxeig_A = []
 maxeig_M = []
 maxeig_Mp = []
 
+maxeig_J_complex = []
+
+n_survives = []
+
 
 #endregion 
 
@@ -66,37 +70,44 @@ maxeig_Mp = []
 for run in range(runs):
     seed = run
     np.random.seed(seed)
-    if run %778 == 0:
+    if run %232 == 0:
         print(run)
 
     # make matrices 
     A = A_matrix(n, C, sigma2, seed, LH=1) 
-    if xstar == 1:
-        A_rows = np.dot(A, xs)
+    A_rows = np.dot(A, xs)
+    A_rowsums.extend(A_rows)
+    Ars_max.append(np.max(A_rows))
+    if xstar == 0:
+        M = M_pre
+    elif xstar == 1:
         M_rows = np.dot(M_pre, xs)
         scales = -np.divide(np.multiply(A_rows, xs), M_rows)
         M = np.multiply(M_pre, np.outer(scales, np.ones(n)))
-        A_rowsums.extend(A_rows)
-        Ars_max.append(np.max(A_rows))
-
-        Mp = M + np.diag(A_rows)
-        Mpvals, Mpvecs = np.linalg.eig(Mp)
+    Mp = M + np.diag(A_rows)
+    Mpvals, Mpvecs = np.linalg.eig(Mp)
 
     Mvals, Mvecs = np.linalg.eig(M)
     
-
     eigs_M.extend(Mvals)
     eigs_Mp.extend(Mpvals)
 
     Avals, Avecs = np.linalg.eig(A)
     eigs_A.extend(Avals)
- 
-    Jac = LH_jacobian(n, A, M, xs) 
-    Jvals, Jvecs = np.linalg.eig(Jac)   
+    if xstar == 1:
+        Jac = LH_jacobian(n, A, M, xs) 
+    elif xstar == 0:        # in this case you actually need to run ODE solver and get approx. final state
+        result = lv_LH(x0, t, A, M)
+        xf = result[-1, :]
+        Jac = LH_jacobian_norowsum(xf, A, M)
+        n_survive = n
+        for species in range(n):
+            if xf[species] < 1e-6:
+                n_survive -= 1
+        n_survives.append(n_survive)
 
-    #eigs_real[:, run] = np.real(Jvals)
-    #eigs_imag[:, run] = np.imag(Jvals)
-    #eigs_real_max[run] = np.max(np.real(Jvals))
+
+    Jvals, Jvecs = np.linalg.eig(Jac)   
 
     eigs.extend(Jvals)
 
@@ -106,15 +117,16 @@ for run in range(runs):
     maxeig_J.append(np.max(np.real(Jvals)))
     maxeig_A.append(np.max(np.real(Avalsm)))
     maxeig_Mp.append(np.max(np.real(Mpvalsm)))
+    maxeig_J_complex.append(np.max(Jvals))
 
     
 #endregion
 
 # region post analysis 
-eigs_real = np.real(eigs)
+eigs_real = np.real(eigs)       # eigs of J
 eigs_imag = np.imag(eigs)
 
-eigs_real_axis = []     # eigenvalues on the real line
+eigs_real_axis = []     # eigenvalues of J on the real line
 eigs_complex = []       # eigenvalues not on the real line
 
 eigs_real_axis_M = [] 
@@ -175,102 +187,65 @@ def gaussian(x, A, mu, sigma2):
     """
     gaussian = A * np.exp(-((x - mu)**2) / (2 * sigma2))
     return gaussian
-
-def circ(x, r, h, c):
-    return h * np.sqrt(abs(r**2 - (x-c)**2))
-
-
     
-#p02 = [runs/4, -6.25, .5, r_mean, runs/7, 1]
-p01g = [1250, -80, 16]
 
-p01gm = [1700, -4.25, 1]
-    
 
 counts, bin_edges = np.histogram(np.real(eigs_real_axis), bins=nbins1, range = histrange)
 bin_centers = np.real((bin_edges[:-1] + bin_edges[1:]) / 2)
 print('bin width = ', bin_edges[1]-bin_edges[0])
 
-# fit the gaussian part with a gauss:
-'''circ1 = -2 - 2*K_set - 0.5
-circ2 = -2 + 2*K_set + 0.5
-b1 = 0 
-b2 = 0
-for i in range(len(bin_centers)):
-    if bin_centers[i] < circ1: 
-        b1 = i
-    elif bin_centers[i] < circ2:
-        b2 = i'''
+mp_counts, mp_bin_edges = np.histogram(np.real(eigs_Mp), bins=nbins1, range = histrange)
+mp_bin_centers = (mp_bin_edges[:-1] + mp_bin_edges[1:]) / 2
 
-b1 = np.digitize(-2 - 2.5*K_set, bin_edges)
+b1 = np.digitize(-2 - 3*K_set, bin_edges)
 b2 = np.digitize(-2 + 2.5*K_set, bin_edges)
+
+binwidth_mp = mp_bin_edges[2] - mp_bin_edges[1]
+bend_mp = int((-0.1 - bin_edges[0])/binwidth_mp)
+bstart_mp = int((0.1 - bin_edges[0])/binwidth_mp)+2
+print(bend_mp, bstart_mp)
 
 #print(b1, b2)
 
-r1 = bin_centers[:b1]
-c1 = counts[:b1]
-r2 = bin_centers[b2:]
-c2 = counts[b2:]
+r1 = bin_centers[:b1]; c1 = counts[:b1]
+r2 = bin_centers[b2:]; c2 = counts[b2:]
 fitx = []; fity = []
-fitx.extend(r1)
-fitx.extend(r2)
+fitx.extend(r1); fitx.extend(r2)
 fity.extend(c1); fity.extend(c2)
+
+fitmx = []; fitmy = []
+fitmx.extend(mp_bin_centers[0:bend_mp]); fitmx.extend(mp_bin_centers[bstart_mp:-1]); 
+fitmy.extend(mp_counts[0:bend_mp]); fitmy.extend(mp_counts[bstart_mp:-1]); 
+
+# M' parameters for fit guessing:
+l2p = z*(z+1)/2 * (muc*mua - f*g)/((muc*z+f)*(mua+g*z)) - (z+1)/2
+s2M = l2p**2 * 4*(s-1)*sigma2
+A_guess = s * runs / ((2*3.14159*s2M)**0.5) * binwidth_mp
+
+
+
+p01g = [A_guess, 2*l2p, s2M]
+print('pars guess:', p01g)
+
+p01gm = p01g
+    
+
 
 parsg, covg = curve_fit(gaussian, fitx, fity, p01g, maxfev=5000)
 print('K: ', K_set, ', pars of gauss of J: ', parsg)
 
-m1 = 1              
-m2 = (mua*muc - f*g)/((mua+g)*(muc+f))      # these are the eigenvlaues of the 
+pars_mp, covs_mp = curve_fit(gaussian, fitmx, fitmy, p01g, maxfev=5000)
+print('pars of M fit:', pars_mp)
 
-print('eigs of M:', m1, m2)
-print('mean diff: ', parsg[1] - m2, '; mean ratio:', parsg[1]/m2)
+# count number in circle
+m1 = 1
+m2 = z*(z+1)/2 * (muc*mua - f*g)/((muc*z+f)*(mua+g*z)) 
 
-
-#countsm, bin_edgesm = np.histogram(np.real(eigs_real_axis_M), bins=nbins1, range = histrange)
-#bin_centersm = np.real((bin_edgesm[:-1] + bin_edgesm[1:]) / 2)
-
-#parsgm, covgm = curve_fit(gaussian, bin_centersm, countsm, p01gm)
 
 counts2, bin_edges2 = np.histogram(np.real(eigs_complex), bins=nbins2)
 
 total_circ = np.sum(counts)
 #print('total circ = ', total_circ)
-
-'''# fit the circle hist
-
-counts2, bin_edges2 = np.histogram(np.real(eigs_complex), bins=nbins2)
-bin_centers2 = np.real((bin_edges2[:-1] + bin_edges2[1:]) / 2)
-
-p02 = [2*K_set, 0.7*runs, -2*K_set-1]
-
-parsc, covc = curve_fit(circ, bin_centers2, counts2, p02)'''
-
-#endregion
-
-# region fit box(doesnt work ): 
-'''y_rect = counts-gaussian(bin_centers, *parsg)
-yrect_mean = np.mean(y_rect)
-yrect_sigma = np.std(y_rect)
-
-r1 = 0
-r2 = 0
-r1stop = 0
-
-for i in range (len(bin_centers)):
-    if y_rect[i] < 3*yrect_mean and r1stop == 0:
-        r1 = bin_centers[i]
-    if y_rect[i] > 3*yrect_mean:
-        r2 = bin_centers[i]
-        r1stop = 1
-
-print('rs: ', r1, r2)
-
-p01 = [*parsg, np.max(y_rect), (r1+r2)/2, r2-r1]
-pars, cov = curve_fit(gaussian_box, bin_centers, counts, p01)
-
-
-print('fit parameters:', pars)
-x_fit = np.linspace(min(bin_edges), max(bin_edges), 1000)'''
 
 #endregion
 
@@ -282,6 +257,7 @@ hist2_title = str('real component of eigs OFF the real axis:'+str(int(n/2))+'*2,
 plot_text = str('$\u03bc_c =$'+str(muc)+', $\u03bc_a =$'+str(mua)+', $f=$'+str(f)+', $g =$'+str(g)+'; '+str('%.0f'%(np.max(nzeros/n/runs*100)))+'% on x=0')
 plot_text_2 = str('circle centered at real component ='+str(r_mean))
 text_fitpars = str('J fit mean: '+str('%0.3f'%parsg[1])+', sigma^2: '+str('%0.3f'%parsg[2])+', A= '+str('%0.3f'%parsg[0]))
+text_fitparsM = str("M' fit mean: "+str('%0.3f'%pars_mp[1])+', sigma^2: '+str('%0.3f'%pars_mp[2])+', A= '+str('%0.3f'%pars_mp[0]))
 
 box_par = dict(boxstyle='square', facecolor='white')
 text_vars = str("$\lambda_2'=$"+ str(m2-1) + '\n $\sigma_a =$'+ str(sigma2**0.5)+'\n s = '+str(n/2))
@@ -314,30 +290,38 @@ plt.grid()
 plt.title(plot_title)
 plt.xlabel('real component')
 plt.ylabel('imaginary component')
-plt.plot(eigs_real, eigs_imag, 'o', ms=2, alpha=.5)
+plt.plot(eigs_real, eigs_imag, 'o', ms=2, alpha=.5, label='J')
+#plt.plot(np.real(eigs_Mp), np.imag(eigs_Mp), 'o', ms=2, alpha=.3, label = "M'")
+#plt.plot(np.real(eigs_A), np.imag(eigs_A), 'o', ms=2, alpha=.3, label = 'A')
 plt.figtext(0.13, 0.12, plot_text)
+#plt.legend()
 #plt.figtext(0.13, 0.86, plot_text_2)
 #plt.xlim([-15, 3])
 #plt.ylim([-9, 9])
 #plt.tight_layout()
 
+plt.figure(figsize=fsize)
+plt.plot(np.real(maxeig_J_complex), np.imag(maxeig_J_complex), '.')
+plt.grid()
 
 # fig 2: histogram of the eigenvalues on the real axis. im(eig)=0
 plt.figure(figsize=fsize)
 #constrained_layrueout = T
-
-plt.hist(np.real(eigs_real_axis), bins=nbins1, range = histrange, label='J')
+#plt.plot(mp_bin_centers[:bend_mp], mp_counts[:bend_mp], '.', label='true Mprime')
+plt.hist(np.real(eigs_real_axis), bins=nbins1, range = histrange, alpha=0.8, label='J')
 #plt.hist(np.real(eigs_real_axis_M), bins=nbins1, range = histrange, histtype='step', alpha = 1, label = 'M')
 plt.hist(np.real(eigs_real_axis_Mp), bins=nbins1, range = histrange, histtype='step', alpha = 1, label = 'M prime')
 plt.hist(np.real(eigs_real_axis_A), bins=nbins1, range = histrange, histtype='step', alpha = 1, label = 'A')
 plt.title(hist1_title)
-plt.figtext(0.13, 0.69, plot_text)
-plt.figtext(0.13, 0.66, text_fitpars)
+plt.figtext(0.13, 0.66, plot_text)
+plt.figtext(0.13, 0.63, text_fitpars)
+plt.figtext(0.13, 0.60, text_fitparsM)
 #
 # plt.figtext(0.13, 0.82, text_fitpars_M)
 #plt.xlabel('real component of eigenvalue')
 plt.ylabel('counts')
-plt.plot(bin_centers, gaussian(bin_centers, *parsg), '-r')
+plt.plot(bin_centers, gaussian(bin_centers, *parsg), '-', label='fit of J')
+plt.plot(fitmx, gaussian(fitmx, *pars_mp), '-', label='fit of M prime')
 #plt.plot(bin_centersm, gaussian(bin_centersm, *parsgm), '-m')
 #plt.plot(bin_centers, gaussian_box(bin_centers, *pars), '-m')
 #plt.tight_layout()
@@ -367,14 +351,17 @@ plt.figtext(0.15, 0.15, text_vars, bbox=box_par)
 
 
 
-#figure: max rowsum of A vs max nonzro eigenvalue of M'
+#figure: max rowsum of A vs max nonzro eigenvalue of J'
 plt.figure(figsize=fsize)
 #plt.plot(yjvals, yjvals, '--', label= 'x=y')
-plt.plot(Ars_max, maxeig_Mp, '.', label = "M'")
+plt.plot(np.linspace(np.min(Ars_max), np.max(Ars_max), 3), 0*np.linspace(np.min(Ars_max), np.max(Ars_max), 3), '--k')
+plt.plot(Ars_max, maxeig_Mp, '.', color='C1', ms = 3, label = "M'")
+plt.plot(Ars_max, maxeig_J, '.', color='C0', ms = 3, label = "J")
 plt.grid()
 plt.legend(loc='upper left')
 plt.xlabel(' Max rowsum of A')
-plt.ylabel('Max eigenvalue of M')
+plt.ylabel("Max eigenvalue of J (M')")
+
 
 
 
@@ -393,8 +380,7 @@ plt.title('Real axis eigenvalues not in the gaussian')
 y_rect = counts-gaussian(bin_centers, *parsg)
 plt.plot(bin_centers, y_rect, '-b')
 #plt.grid()'''
-
-plt.figure(figsize=fsize)
+'''plt.figure(figsize=fsize)
 c_rs, b_rs = np.histogram(np.real(A_rowsums), bins=200)
 #c_rs = c_rs/np.sum(c_rs)
 b_crs_centers = np.real((b_rs[:-1] + b_rs[1:]) / 2)
@@ -404,8 +390,14 @@ pars_rs, cov_rs = curve_fit(gaussian, b_crs_centers, c_rs, p0_rs)
 plt.plot(b_crs_centers, c_rs)
 plt.plot(b_crs_centers, gaussian(b_crs_centers, *pars_rs), '-m')
 plt.plot(b_crs_centers, gaussian(b_crs_centers, pars_rs[0], -2, 2*(n/2-1)*sigma2), '-r')
-print('predicted: ',p0_rs, ', actual: ',pars_rs)
-#plt.grid()
+#print('predicted: ',p0_rs, ', actual: ',pars_rs)
+#plt.grid()'''
+
+if xstar == 0:  
+    plt.figure(figsize=fsize)
+    plt.plot(maxeig_J, n_survives, '.')
+    plt.grid()
+
 
 
 
