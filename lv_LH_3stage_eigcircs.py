@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 from scipy import integrate
 from scipy.optimize import curve_fit
 from lv_functions import A_matrix
-from lv_functions import M_matrix
+from lv_functions import A_matrix3
+from lv_functions import M_matrix3
 from lv_functions import lv_LH
 from lv_functions import x0_vec
 from lv_functions import LH_jacobian
@@ -13,35 +14,34 @@ from lv_functions import LH_jacobian_norowsum
 import random 
 
 #region variables to change
-K_set = 0.1
+K_set = 0.5
 muc = -0.5
 mua = -0.5
 f = 1.5
 g = 1
 
-z = 1
+z = 0.7
 
 xstar = 1
-zrand = 1
-n = 50
+n = 48
 
 runs = 100
 #endregion
 
 random.seed(1)
 #region set up other variables
-s = n/2
+s = n/3
 x0 = x0_vec(n)
 C = 1
-sigma2 = K_set**2/n*2
+sigma2 = K_set**2/n*3
 print('n:', n, ', sigma:', '%.0f'%(sigma2**0.5))
-M_pre = M_matrix(n, muc, mua, f, g)
+M_pre = M_matrix3(n, muc, mua, f, g)
 xs = np.ones(n)
-for i in range(0, n, 2):
-    xs[i] = z
+for species in range(0, n, 3):  
+    xs[species] = z
+    xs[species+1] = z
+print(xs)
 
-if zrand == 1:
-    xs = np.random.uniform(0.8, 2, n)
 t = np.linspace(0, 200, 200)
 
 eigs = []
@@ -78,7 +78,7 @@ for run in range(runs):
         print(run)
 
     # make matrices 
-    A = A_matrix(n, C, sigma2, seed, LH=1) 
+    A = A_matrix3(n, C, sigma2, seed) 
     A_rows = np.dot(A, xs)
     A_rowsums.extend(A_rows)
     Ars_max.append(np.max(A_rows))

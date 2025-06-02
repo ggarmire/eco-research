@@ -14,20 +14,25 @@ from lv_functions import x0_vec
 import random 
 import math
 
-seed = random.randint(0, 1000)
-seed = 219
+seed = random.randint(0, 2000)
+#seed = 287
 print("seed: ", seed)
 
 
 #region initial conditions 
 
 # values to set 
-n = 9     # number of species 
-s = int(n / 2)
+n = 30     # number of species 
 x0 = x0_vec(n)
-t = np.linspace(0, 200, 200)
-K_set = 0.4
+t = np.linspace(0, 50, 1000)
+K_set = 0.7
 C = 1
+
+muc = -0.5
+mua = -0.5
+f = 1.5
+g = 1
+
 
 # constraint settings 
 xstar = 1       #flag: 1 if constraining abundances 
@@ -35,34 +40,27 @@ z = 2       # juvinile fraction
 zrand = 1       # flag: 1 if random juvinile fractions per species
 
 # values that dont get set 
-sigma2 = 2 * K_set**2 / n / C
+s = int(n / 3)
+sigma2 = K_set**2 / s / C
 K = (sigma2*C*s)**0.5
 
 # checks:
-if n % 2 != 0:
-    raise Exception("n is not a multiple of 2.")
+if n % 3 != 0:
+    raise Exception("n is not a multiple of 3.")
 if K!=K_set:
   raise Exception("K set does not match K.")
 
-
-A = A_matrix3(n, C, sigma2, seed, LH=1)
+# region set matrices 
+A = A_matrix3(n, C, sigma2, seed)
 A_classic = A_matrix(int(n/2), C, sigma2, seed, LH=0)
-
-
 Avals, Avecs = np.linalg.eig(A)
 
 A_rowsums = np.dot(A, np.ones(n))
 print('max A rowsums:', np.max(A_rowsums))
 
 # for m matrix:
-muc = -0.5
-mua = -0.5
-f = 1.5
-g = 1
-
 M = M_matrix3(n, muc, mua, f, g)
 mvals, mvecs = np.linalg.eig(M)
-
 if xstar == 1:
     xs = np.ones(n)
     #print(xs)
@@ -74,66 +72,32 @@ if xstar == 1:
     Mprime = M + np.diag(A_rows)
     mpvals, mpvecs = np.linalg.eig(Mprime)
 
-#print('M after scaling :'); print(M[0:4, 0:4])
-#print('mpvals:', mpvals)
+#print('A: \n', A)
+#print('M: \n', M)
 
-# run function here: 
+# region run function: 
 result = lv_LH(x0, t, A, M)
 
-#print('eigenvalues of M:', mvals)
-#print('eigenvalues of A:', Avals)
-#print('eigenvectors of M:', mvecs)
-#print('eigenvectors of A:', Avecs)
-
-#print('DIVIDED:', np.divide(mvecs, Avecs))
-
-
-
-#result = integrate.odeint(derivative, x0, t, args = (M, A))
-
-
-
-#xf = np.zeros(n)
-
-
-
-#print("final populations: ")
-#print(xf)
-
 #%% Stats: 
-
 species_left = 0
 species_stable = 0
-z = np.zeros(int(n/2))
 for i in range(n):
     if result[-1, i] > 1e-3:
         species_left+=1
         if abs((result[-1, i]-result[-2, i]) / result[-1, i]) < 0.001:
             species_stable +=1
-    if i%2 == 0:
-        z[int(i/2)]= (result[-1,i]/(result[-1,i]+result[-1,i+1]))
 
-#print("juvinile fractions: ", z)
+print("species remaining:", species_left, "sepcies stable: ", species_stable)
 
-print("tfinal: ", t[-1], ", species remaining:", species_left, "sepcies stable: ", species_stable)
-
-#%% Calculate the Jacobian
+# region Calculate the Jacobian
 if xstar ==1:
     Jac = LH_jacobian(n, A, M, xs) 
 elif xstar ==0:
     Jac = LH_jacobian_norowsum(result[-1, :], A, M)
 #print("Jacobian: ", Jac)
 Jvals, Jvecs = np.linalg.eig(Jac)
-#Jvals2, Jvecs2 = np.linalg.eig(Jac2)
-#print('Eigenvalues of Jacobian: \n', Jvals)
-#print('Max real eigenvalue of A:', np.max(np.real(Avals)))
-#print('Max real eigenvalue of Jac:', np.max(np.real(Jvals)))
-#print('Max real eigenvalue of Jac2:', np.max(np.real(Jvals2)))
 
-
-
-
-#%% Plotting: 
+#region plot setup 
 
 colors = ['C0', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9']
 
@@ -147,12 +111,12 @@ elif xstar == 0:
                     '\n Max real eigenvalue of M (unscaled): '+ str('%.3f'%(np.max(np.real(mvals))))
                     +'\n Max real eigenvalue of A: '+ str('%.3f'%(np.max(np.real(Avals)))))
 
-box_par = dict(boxstyle='square', facecolor='white', z = 0.5)
+box_par = dict(boxstyle='square', facecolor='white', alpha = 0.5)
 
 
+# region figures 
 
 plt.figure()
-
 plt.grid()
 if xstar == 1:
     title = str('Species Population over time, N=2S='+str(n)+', x*=1, z = '+str(z))
@@ -161,12 +125,15 @@ elif xstar ==0:
 plt.title(title)
 #plt.title("Species Population over time, f=0.49, x*=1")
 for i in range(n):
-    if i%2 == 0:
-        plt.plot(0, result[0, i], 'o', mfc = 'none', color=colors[math.floor(i/2)], ms = 3)
-        plt.plot(t, result[:, i], 'o', mfc = 'none', color=colors[math.floor(i/2)], ms = 3, markevery = (i, 20))       # child (empty)
-    else:
-        plt.plot(0, result[0, i], 'o', color=colors[math.floor(i/2)], ms = 3)
-        plt.plot(t, result[:, i], 'o', color=colors[math.floor(i/2)], ms = 3, markevery = (i, 20))     # adult (full)
+    if i%3 == 0:
+        plt.plot(0, result[0, i], 'o', mfc = 'none', color=colors[math.floor(i/3)], ms = 3)
+        plt.plot(t, result[:, i], 'o', mfc = 'none', color=colors[math.floor(i/3)], ms = 3, markevery = (i, 20))       # child (empty)
+    elif i%3==1:
+        plt.plot(0, result[0, i], 'o', color=colors[math.floor(i/3)], ms = 3)
+        plt.plot(t, result[:, i], 'o', color=colors[math.floor(i/3)], ms = 3, markevery = (i, 20))     # adult (full)
+    elif i%3==2:
+        plt.plot(0, result[0, i], 'o', color=colors[math.floor(i/3)], ms = 3)
+        plt.plot(t, result[:, i], 'o', color=colors[math.floor(i/3)], ms = 3, markevery = (i, 20))     # adult (full)
 plt.xlabel('Time t')
 plt.ylabel('Population density')
 plt.figtext(0.13, 0.12, plot_text)

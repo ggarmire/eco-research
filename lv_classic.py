@@ -10,7 +10,7 @@ import random
 
 
 seed = random.randint(0, 1000)
-#seed = 360
+seed = 576
 print("seed: ", seed)
 
 xstar = 1
