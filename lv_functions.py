@@ -7,8 +7,8 @@ from scipy import integrate
 from decimal import Decimal, getcontext
 
 #%% initial conditions 
-def x0_vec(n):
-    np.random.seed(1)
+def x0_vec(n, seed):
+    np.random.seed(seed)
     x0 = np.random.normal(loc=1, scale=0.1, size=n)
     for i in range(n):
         while x0[i] <= 0: 
@@ -110,14 +110,15 @@ def M_matrix3(n, muc, mua, f, g):
             M[i][i] = muc
             M[i+1][i+1] = muc
             M[i+2][i+2] = mua
-            M[i][i+1] = f  
-            M[i][i+2] = f  
-            M[i+1][i+2] = f  
+            M[i][i+1] = 0
+            M[i][i+2] = f
             M[i+1][i] = g
-            M[i+2][i] = g
             M[i+2][i+1] = g
         
     return M
+
+#M = M_matrix3(6, -0.5, -0.6, 1, 2)
+#print(M)
 
 #%% ODE solvers 
 '''def lv_LH(x0, t, A, M): 

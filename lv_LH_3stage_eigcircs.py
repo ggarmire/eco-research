@@ -31,7 +31,7 @@ runs = 100
 random.seed(1)
 #region set up other variables
 s = n/3
-x0 = x0_vec(n)
+x0 = x0_vec(n, 1)
 C = 1
 sigma2 = K_set**2/n*3
 print('n:', n, ', sigma:', '%.0f'%(sigma2**0.5))

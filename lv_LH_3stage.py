@@ -14,7 +14,7 @@ from lv_functions import x0_vec
 import random 
 import math
 
-seed = random.randint(0, 2000)
+seed = random.randint(0, 1000)
 #seed = 287
 print("seed: ", seed)
 
@@ -23,8 +23,8 @@ print("seed: ", seed)
 
 # values to set 
 n = 30     # number of species 
-x0 = x0_vec(n)
-t = np.linspace(0, 50, 1000)
+x0 = x0_vec(n, 1)
+t = np.linspace(0, 30, 1000)
 K_set = 0.7
 C = 1
 
@@ -37,7 +37,7 @@ g = 1
 # constraint settings 
 xstar = 1       #flag: 1 if constraining abundances 
 z = 2       # juvinile fraction 
-zrand = 1       # flag: 1 if random juvinile fractions per species
+zrand = 0       # flag: 1 if random juvinile fractions per species
 
 # values that dont get set 
 s = int(n / 3)
@@ -63,6 +63,9 @@ M = M_matrix3(n, muc, mua, f, g)
 mvals, mvecs = np.linalg.eig(M)
 if xstar == 1:
     xs = np.ones(n)
+    for i in range(0,n,3):
+        xs[i] = z
+        xs[i+1] = z
     #print(xs)
     A_rows = np.dot(A, xs)
     M_rows = np.dot(M, xs)
@@ -119,7 +122,7 @@ box_par = dict(boxstyle='square', facecolor='white', alpha = 0.5)
 plt.figure()
 plt.grid()
 if xstar == 1:
-    title = str('Species Population over time, N=2S='+str(n)+', x*=1, z = '+str(z))
+    title = str('Species Population over time, N=3S='+str(n)+', x*=1, z = '+str(z))
 elif xstar ==0: 
     title = str('Species Population over time, f='+str(f)+', x*/=1')
 plt.title(title)

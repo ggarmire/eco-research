@@ -17,7 +17,7 @@ xstar = 1
 
 #%% initial conditions and such 
 n = 10     # number of species 
-x0 = x0_vec(n)
+x0 = x0_vec(n, 1)
 
 K_set = 1.1
 

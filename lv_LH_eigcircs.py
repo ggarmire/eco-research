@@ -1,5 +1,5 @@
 
-#%% libraries 
+# libraries 
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import integrate
@@ -11,120 +11,169 @@ from lv_functions import x0_vec
 from lv_functions import LH_jacobian
 from lv_functions import LH_jacobian_norowsum
 import random 
+from matplotlib.colors import LogNorm
 
-#region variables to change
-K_set = 0.1
+#region Set Variables 
+
+# stuff that gets changed: 
+n = 6
+runs = 500
+
+# A matrix 
+
+K_set = 0.5
+C = 1
+
+# M matrix 
 muc = -0.5
 mua = -0.5
 f = 1.5
 g = 1
 
-z = 1
+z = 0.7
 
-xstar = 1
-zrand = 1
-n = 50
+xstar = 1       # 1 constrains the final pops 
+zrand = 1      # 1 randomizes juvinile fractions
+runode = 1      # 1 runs the ODE solver for each A matrix (not necessary for xstar=0)
 
-runs = 100
-#endregion
 
-random.seed(1)
-#region set up other variables
+# stuff that does not get changed:
 s = n/2
-x0 = x0_vec(n)
-C = 1
+x0 = x0_vec(n, 1)
 sigma2 = K_set**2/n*2
-print('n:', n, ', sigma:', '%.0f'%(sigma2**0.5))
-M_pre = M_matrix(n, muc, mua, f, g)
 xs = np.ones(n)
 for i in range(0, n, 2):
     xs[i] = z
-
-if zrand == 1:
+if zrand == 1:  
+    np.random.seed(1)
     xs = np.random.uniform(0.8, 2, n)
-t = np.linspace(0, 200, 200)
+t = np.linspace(0, 200, 500)
+M_pre = M_matrix(n, muc, mua, f, g)
+print('n:', n, ', sigma:', '%.3f'%(sigma2**0.5))
 
-eigs = []
-eigs_died = []
+print('xs:', xs)
 
-eigs_M = []
-eigs_Mp = []
-eigs_A = []
+#region make arrays 
+eigs_J = []     # eigenvalues of the jacobian 
+eigs_J_died = []        # eigenvalues when not all species survive 
 
-A_rowsums = []
-Ars_max = []
+eigs_M = []     # eigenvlaues of M after scaling 
+eigs_Mp = []        # eigenvalues of M+delta term 
+eigs_A = []     # eigenvalues of A 
+
+A_rowsums = []      # rowsums of A 
+Ars_max = []        # max rowsum of A 
+Ars_max_scaled = []        # max rowsum of A 
 
 
-maxeig_J = []
+maxeig_J = []       # max eigenvalue for each run
 maxeig_A = []
 maxeig_M = []
 maxeig_Mp = []
 
-maxeig_J_complex = []
+maxeig_J_complex = []       # max eigenvalue, storing the complex value
 maxeig_J_complex_died = []
 
-n_survives = []
-final_match = []
-
-
-#endregion 
+n_survives = []     # number of subspecies that survive 
+n_survives_noscale = []     # number of subspecies that survive 
+# endregion
 
 
 # region loop 
 for run in range(runs):
     seed = run
     np.random.seed(seed)
-    if run %232 == 0:
+    if run %87 == 0:
         print(run)
 
-    # make matrices 
-    A = A_matrix(n, C, sigma2, seed, LH=1) 
+    # make A matrix 
+    A = A_matrix(n, C, sigma2, seed, LH=1)      #random a matrix 
     A_rows = np.dot(A, xs)
     A_rowsums.extend(A_rows)
-    Ars_max.append(np.max(A_rows))
+    Ars_max_scaled.append(np.max(A_rows))
+    Ars_max.append(np.max(np.dot(A, np.ones(n))))
+
+    Avals, Avecs = np.linalg.eig(A)
+    eigs_A.extend(Avals)
+
+    # scale M matrix for equal row sums 
     if xstar == 0:
         M = M_pre
     elif xstar == 1:
+        #normal scaling: scale each row of M
         M_rows = np.dot(M_pre, xs)
         scales = -np.divide(np.multiply(A_rows, xs), M_rows)
-        M = np.multiply(M_pre, np.outer(scales, np.ones(n)))
-    Mp = M + np.diag(A_rows)
-    Mpvals, Mpvecs = np.linalg.eig(Mp)
+        M = np.multiply(M_pre, np.outer(scales, np.ones(n)))  
+        '''# alternative 1: scale off diagonals of M
+        M = M_pre
+        for row in range(0, n, 2):
+            M[row][row+1] = -z*muc - A_rows[row]
+            M[row+1][row] = 1/z * (-mua - A_rows[row])'''
+    # alternative 2: scale off diagonals of A
+
+        M_row_post = -np.dot(M, xs)
+        
+        '''if A_rows.all != M_row_post.all: 
+            print('rowsums dont match!')
+            print('A rowsums: \n', np.multiply(xs, A_rows))
+            print('M rowsums: \n', M_row_post)'''
+
+
+    Mp = M + np.diag(A_rows)        # mprime = m + delta
 
     Mvals, Mvecs = np.linalg.eig(M)
+    Mpvals, Mpvecs = np.linalg.eig(Mp)
     
     eigs_M.extend(Mvals)
     eigs_Mp.extend(Mpvals)
 
-    Avals, Avecs = np.linalg.eig(A)
-    eigs_A.extend(Avals)
+    # calculate jacobian given final values 
     if xstar == 1:
         Jac = LH_jacobian(n, A, M, xs) 
-    #elif xstar == 0:        # in this case you actually need to run ODE solver and get approx. final state
+        Jvals, Jvecs = np.linalg.eig(Jac) 
     
-    result = lv_LH(x0, t, A, M)
-    xf = result[-1, :]
-    match = 1
-    if xstar == 0:
-        Jac = LH_jacobian_norowsum(xf, A, M)
-    n_survive = n
-    for species in range(n):
-        if abs(xf[species] - xs[species]) > 1e-3:
-            match = 0 
-        if xf[species] < 1e-3:
-            n_survive -= 1
-    n_survives.append(n_survive)
-    final_match.append(match)
+    # run ODE solver 
+    ranode = 0
+    if xstar == 0 or runode == 1:
+        ranode = 1
+
+        result_noscale = lv_LH(x0, t, A, M_pre)     # ODE with unscaled M
+        xf_noscale = result_noscale[-1, :]      
+
+        result = lv_LH(x0, t, A, M)         # with scaled M
+        xf = result[-1, :]
 
 
-    Jvals, Jvecs = np.linalg.eig(Jac)   
+        # metrics after solving 
+        if xstar == 0:
+            Jac = LH_jacobian_norowsum(xf_noscale, A, M)
+            Jvals, Jvecs = np.linalg.eig(Jac) 
+        n_survive = n
+        n_survive_noscale = n
+        for species in range(n):
+            if xf[species] < 1e-3:
+                n_survive -= 1
+            if xf_noscale[species] < 1e-3:
+                n_survive_noscale -= 1
+        n_survives.append(n_survive)
+        n_survives_noscale.append(n_survive_noscale)
+        if n_survive < n:
+            eigs_J_died.extend(Jvals)
+            maxeig_J_complex_died.append(np.max(Jvals))
+            
+        if n_survive == n and np.max(A_rows) > 0: # and np.max(Jvals) < 0 
+            print('seed:', seed, 'max real eig:',np.max(Jvals), 'species left:', n_survive, ', max rowsum in A: ', np.max(A_rows))
+            print('final pops:', xf)
 
-    eigs.extend(Jvals)
-    if n_survive < n:
-        eigs_died.extend(Jvals)
-        maxeig_J_complex_died.append(np.max(Jvals))
 
-    Avalsm = np.ma.masked_inside(Avals, -1e-10, 1e-10)
+
+    #print('size of jacobian: ', np.size(Jac))
+      
+
+    eigs_J.extend(Jvals)
+    
+
+    Avalsm = np.ma.masked_inside(Avals, -1e-10, 1e-10)      # nonzero eigenvalues of the two, since the zeros dissapear later 
     Mpvalsm = np.ma.masked_inside(Mpvals, -1e-10, 1e-10)
 
     maxeig_J.append(np.max(np.real(Jvals)))
@@ -132,15 +181,13 @@ for run in range(runs):
     maxeig_Mp.append(np.max(np.real(Mpvalsm)))
     maxeig_J_complex.append(np.max(Jvals))
 
-    if np.max(Jvals) > 0:
-        print('seed:', seed, 'max real eig:',np.max(Jvals), 'species left:', n_survive, 'match?', match)
+    #if np.max(np.real(Jvals))>0:
+    #    print('seed: ', seed, ', max eig:', np.max(np.real(Jvals)))
 
-    
-#endregion
 
-# region post analysis 
-eigs_real = np.real(eigs)       # eigs of J
-eigs_imag = np.imag(eigs)
+        
+
+# region sort eigenvalues
 
 eigs_real_axis = []     # eigenvalues of J on the real line
 eigs_complex = []       # eigenvalues not on the real line
@@ -151,12 +198,12 @@ eigs_real_axis_A = []
 
 
 nzeros = 0
-for i in range(len(eigs_imag)):
-    if abs(eigs_imag[i]) <= 1e-7:
+for i in range(len(eigs_J)):
+    if abs(eigs_J[i].imag) <= 1e-7:
         nzeros += 1
-        eigs_real_axis.append(eigs[i].real)
-    elif abs(eigs_imag[i]) > 1e-7:
-        eigs_complex.append(eigs[i])
+        eigs_real_axis.append(eigs_J[i].real)
+    elif abs(eigs_J[i].imag) > 1e-7:
+        eigs_complex.append(eigs_J[i])
     if abs(eigs_M[i].imag) <= 1e-7:
         eigs_real_axis_M.append(eigs_M[i].real)
     if abs(eigs_Mp[i].imag) <= 1e-7:
@@ -169,123 +216,110 @@ eigs_abs = np.abs(eigs_complex)
 
 r_mean = np.mean(np.real(eigs_complex))
 i_mean = np.mean(np.imag(eigs_complex))
-#print(r_mean, ', ', i_mean)
 
 
-# fit histograms: 
+# region make histograms 
 
-# histograms: 
-nbins1 = 70
-nbins2 = 70
-histrange = (np.min(eigs_real), max(np.max(eigs_real), np.max(eigs_real_axis_M)))
+# settings:
+nbins = 70
+histmin = min(np.min(np.real(eigs_Mp)), np.min(np.real(eigs_A)), np.min(np.real(eigs_J)))
+histmax = max(np.max(np.real(eigs_Mp)), np.max(np.real(eigs_A)), np.max(np.real(eigs_J)))
+histrange = (histmin, histmax)
 
-def gaussian_box(x, A, mu, sigma, h, c, w):
-    """
-    A: Amplitude of Gaussian
-    mu: Mean of Gaussian
-    sigma: Std dev of Gaussian
-    h = height of box 
-    c = center of box 
-    w = width of box 
-    """
-    gaussian = A * np.exp(-((x - mu)**2) / (2 * sigma**2))
-    boxcar = h * ((x >= c-w/2) & (x <= c+w/2)).astype(float)
-    return gaussian + boxcar
+# J eigs: real axis 
+J_counts, J_be = np.histogram(np.real(eigs_J), bins=nbins, range = histrange)
+J_bc = np.real((J_be[:-1] + J_be[1:]) / 2)
+# M eigs: real axis 
+M_counts, M_be = np.histogram(np.real(eigs_M), bins=nbins, range = histrange)
+M_bc = np.real((M_be[:-1] + M_be[1:]) / 2)
+# A eigs: real axis 
+A_counts, A_be = np.histogram(np.real(eigs_A), bins=nbins, range = histrange)
+A_bc = np.real((A_be[:-1] + A_be[1:]) / 2)
+# M prime eigs: real axis 
+Mp_counts, Mp_be = np.histogram(np.real(eigs_Mp), bins=nbins, range = histrange)
+Mp_bc = np.real((Mp_be[:-1] + Mp_be[1:]) / 2)
 
+print('counts J: ', np.sum(J_counts), 'A: ', np.sum(A_counts), ', Mp: ', np.sum(Mp_counts))
+
+bw = J_be[2] - J_be[1]      # bin width
+
+
+
+
+
+
+# region fitting 
+
+# analytical eigenvalues of M
+m1 = 1
+m2 = z*(z+1)/2 * (muc*mua - f*g)/((muc*z+f)*(mua+g*z)) 
+
+# set function 
 def gaussian(x, A, mu, sigma2):
     """
     A: Amplitude of Gaussian
     mu: Mean of Gaussian
-    sigma: Std dev of Gaussian
-    h = height of box 
-    c = center of box 
-    w = width of box 
+    sigma2: variance of Gaussian
     """
     gaussian = A * np.exp(-((x - mu)**2) / (2 * sigma2))
     return gaussian
-    
+
+# find bin that contains 0 and circle edges
+b1_circ = np.digitize(-2 - 2.5*K_set, J_bc)
+b2_circ = np.digitize(-2 + 2.5*K_set, J_bc)
 
 
-counts, bin_edges = np.histogram(np.real(eigs_real_axis), bins=nbins1, range = histrange)
-bin_centers = np.real((bin_edges[:-1] + bin_edges[1:]) / 2)
-print('bin width = ', bin_edges[1]-bin_edges[0])
+b0 = np.digitize(0, Mp_bc)
 
-mp_counts, mp_bin_edges = np.histogram(np.real(eigs_Mp), bins=nbins1, range = histrange)
-mp_bin_centers = (mp_bin_edges[:-1] + mp_bin_edges[1:]) / 2
+# fit J with a gauss, away from the circle 
+fitjx = []; fitjy = []
+fitjx.extend(J_bc[0:b1_circ]); fitjx.extend(J_bc[b2_circ:-1])
+fitjy.extend(J_counts[0:b1_circ]); fitjy.extend(J_counts[b2_circ:-1])
 
-b1 = np.digitize(-2 - 3*K_set, bin_edges)
-b2 = np.digitize(-2 + 2.5*K_set, bin_edges)
-
-binwidth_mp = mp_bin_edges[2] - mp_bin_edges[1]
-bend_mp = int((-0.1 - bin_edges[0])/binwidth_mp)
-bstart_mp = int((0.1 - bin_edges[0])/binwidth_mp)+2
-print(bend_mp, bstart_mp)
-
-#print(b1, b2)
-
-r1 = bin_centers[:b1]; c1 = counts[:b1]
-r2 = bin_centers[b2:]; c2 = counts[b2:]
-fitx = []; fity = []
-fitx.extend(r1); fitx.extend(r2)
-fity.extend(c1); fity.extend(c2)
-
+# fit M prime with a gaussian, away from 0
 fitmx = []; fitmy = []
-fitmx.extend(mp_bin_centers[0:bend_mp]); fitmx.extend(mp_bin_centers[bstart_mp:-1]); 
-fitmy.extend(mp_counts[0:bend_mp]); fitmy.extend(mp_counts[bstart_mp:-1]); 
+fitmx.extend(Mp_bc[0:b0-2]); fitmx.extend(Mp_bc[b0+2:-1]); 
+fitmy.extend(Mp_counts[0:b0-2]); fitmy.extend(Mp_counts[b0+2:-1]); 
 
 # M' parameters for fit guessing:
-l2p = z*(z+1)/2 * (muc*mua - f*g)/((muc*z+f)*(mua+g*z)) - (z+1)/2
+l2p = m2 - (z+1)/2
 s2M = l2p**2 * 4*(s-1)*sigma2
 print('l2p', l2p, 's', s, 'sigma2', sigma2, 's2m:', s2M)
-A_guess = s * runs / ((2*3.14159*s2M)**0.5) * binwidth_mp
+A_guess = s * runs / ((2*3.14159*s2M)**0.5) * bw
 
 
+p0_Mp = [A_guess, 2*l2p, s2M]
+print('pars guess for M prime:', p0_Mp)
 
-p01g = [A_guess, 2*l2p, s2M]
-print('pars guess:', p01g)
-
-p01gm = p01g
-    
-
-
-parsg, covg = curve_fit(gaussian, fitx, fity, p01g, maxfev=5000)
-print('K: ', K_set, ', pars of gauss of J: ', parsg)
-
-pars_mp, covs_mp = curve_fit(gaussian, fitmx, fitmy, p01g, maxfev=5000)
-print('pars of M fit:', pars_mp)
-
-# count number in circle
-m1 = 1
-m2 = z*(z+1)/2 * (muc*mua - f*g)/((muc*z+f)*(mua+g*z)) 
+# fit Mprime and J with the same guess 
+pars_Mp, cov_Mp = curve_fit(gaussian, fitmx, fitmy, p0_Mp, maxfev=5000)
+pars_J, cov_J = curve_fit(gaussian, fitjx, fitjy, p0_Mp, maxfev=5000)
+print('fit parameters of M prime:', pars_Mp)
+print('fit parameters of J gauss:', pars_Mp)
 
 
-counts2, bin_edges2 = np.histogram(np.real(eigs_complex), bins=nbins2)
-
-total_circ = np.sum(counts)
-#print('total circ = ', total_circ)
-
-#endregion
 
 #region plotting setup 
-plot_title = str('Eigenvalues of J: n='+str(int(n/2))+'*2, z='+str(z)+', K='+str(K_set))
-plot_title2 = str('Max Eigenvalues vs. rowsum: n='+str(int(n/2))+'*2, z='+str(z)+', K='+str(K_set))
-hist1_title = str('real component of eigs ON the real axis:'+str(int(n/2))+'*2, z='+str(z)+', K='+str(K_set))
-hist2_title = str('real component of eigs OFF the real axis:'+str(int(n/2))+'*2, z='+str(z)+', K='+str(K_set))
 
-plot_text = str('$\u03bc_c =$'+str(muc)+', $\u03bc_a =$'+str(mua)+', $f=$'+str(f)+', $g =$'+str(g)+'; '+str('%.0f'%(np.max(nzeros/n/runs*100)))+'% on x=0')
-plot_text_2 = str('circle centered at real component ='+str(r_mean))
-text_fitpars = str('J fit mean: '+str('%0.3f'%parsg[1])+', sigma^2: '+str('%0.3f'%parsg[2])+', A= '+str('%0.3f'%parsg[0]))
-text_fitparsM = str("M' fit mean: "+str('%0.3f'%pars_mp[1])+', sigma^2: '+str('%0.3f'%pars_mp[2])+', A= '+str('%0.3f'%pars_mp[0]))
+# texts 
+Jeigs_title = str('Eigenvalues of J: n='+str(int(n/2))+'*2, z='+str(z)+', K='+str(K_set))
+maxrs_title = str('Max Eigenvalues vs. rowsum: n='+str(int(n/2))+'*2, z='+str(z)+', K='+str(K_set))
+if zrand == 1: maxrs_title = str('Max Eigenvalues vs. rowsum: n='+str(int(n/2))+'*2, random constraint, K='+str(K_set))
+Jhist_title = str('Real eigenvalues of J: : n='+str(int(n/2))+'*2, z='+str(z)+', K='+str(K_set))
+
+mpar_text = str('$\u03bc_c =$'+str(muc)+', $\u03bc_a =$'+str(mua)+', $f=$'+str(f)+', $g =$'+str(g)+'; '+str('%.0f'%(np.max(nzeros/n/runs*100)))+'% on x=0')
+Jfit_text = str('J fit mean: '+str('%0.3f'%pars_J[1])+', sigma^2: '+str('%0.3f'%pars_J[2])+', A= '+str('%0.3f'%pars_J[0]))
+Mfit_text = str("M' fit mean: "+str('%0.3f'%pars_Mp[1])+', sigma^2: '+str('%0.3f'%pars_Mp[2])+', A= '+str('%0.3f'%pars_Mp[0]))
 
 box_par = dict(boxstyle='square', facecolor='white')
 text_vars = str("$\lambda_2'=$"+ str(m2-1) + '\n $\sigma_a =$'+ str(sigma2**0.5)+'\n s = '+str(n/2))
 #text_fitpars_M = str('M fit mean: '+str('%0.3f'%parsgm[1])+', sigma^2: '+str('%0.3f'%parsgm[2])+', A= '+str('%0.3f'%parsgm[0]))
 
+text_species_survive = str('n='+str(n)+', K='+str(K_set))
 
-hist2_text = str('mean at '+ str('%0.3f'%r_mean)+ ', '+str(total_circ)+' counts')
 
-max_ax = np.max(eigs_imag) + 3
-min_ax = np.min(eigs_imag) - 3
+max_ax = np.max(np.imag(eigs_J)) + 3
+min_ax = np.min(np.imag(eigs_J)) - 3
 
 fsize = (6,6)
 
@@ -295,187 +329,119 @@ max_jvals = np.max(maxeig_J)
 yjvals = np.linspace(min_jvals-0.2, max_jvals+0.2, 5)
 
 
-#endregion
-
-
 
 #region plotting 
 
-
-# fig 1: distribution of all eigenvalues 
+# fig: distribution of all eigenvalues 
 plt.figure(figsize=fsize)
 plt.grid()
-plt.title(plot_title)
+plt.title(Jeigs_title)
 plt.xlabel('real component')
 plt.ylabel('imaginary component')
-plt.plot(eigs_real, eigs_imag, 'o', ms=1, label='all survive')
-plt.plot(np.real(eigs_died), np.imag(eigs_died), 'o', ms=1, label='species died')
+plt.plot(np.real(eigs_J), np.imag(eigs_J), 'o', ms=2, label='all survive')
+plt.plot(np.real(eigs_J_died), np.imag(eigs_J_died), 'o', ms=2, label='some species died')
 #plt.plot(np.real(eigs_Mp), np.imag(eigs_Mp), 'o', ms=2, alpha=.3, label = "M'")
 #plt.plot(np.real(eigs_A), np.imag(eigs_A), 'o', ms=2, alpha=.3, label = 'A')
-plt.figtext(0.13, 0.12, plot_text)
+plt.figtext(0.13, 0.12, mpar_text)
 plt.legend()
 #plt.figtext(0.13, 0.86, plot_text_2)
 #plt.xlim([-15, 3])
 #plt.ylim([-9, 9])
 #plt.tight_layout()
 
+
 #figure: compex max eig 
 plt.figure(figsize=fsize)
 plt.plot(np.real(maxeig_J_complex), np.imag(maxeig_J_complex), '.', label = 'all survive')
-plt.plot(np.real(maxeig_J_complex_died), np.imag(maxeig_J_complex_died), '.', label ='died')
+plt.plot(np.real(maxeig_J_complex_died), np.imag(maxeig_J_complex_died), '.', label ='some died')
 plt.grid()
 plt.legend()
-plt.title('max Eigenvalue of J')
+plt.title('max Eigenvalue of J, in complex plane')
 plt.xlabel('real component')
 plt.ylabel('imaginary component')
 
-# fig 2: histogram of the eigenvalues on the real axis. im(eig)=0
+
+# fig: histogram of the eigenvalues on the real axis. im(eig)=0
 plt.figure(figsize=fsize)
-#constrained_layrueout = T
-#plt.plot(mp_bin_centers[:bend_mp], mp_counts[:bend_mp], '.', label='true Mprime')
-plt.hist(np.real(eigs_real_axis), bins=nbins1, range = histrange, alpha=0.8, label='J')
-#plt.hist(np.real(eigs_real_axis_M), bins=nbins1, range = histrange, histtype='step', alpha = 1, label = 'M')
-plt.hist(np.real(eigs_real_axis_Mp), bins=nbins1, range = histrange, histtype='step', alpha = 1, label = 'M prime')
-plt.hist(np.real(eigs_real_axis_A), bins=nbins1, range = histrange, histtype='step', alpha = 1, label = 'A')
-plt.title(hist1_title)
-plt.figtext(0.13, 0.66, plot_text)
-plt.figtext(0.13, 0.63, text_fitpars)
-plt.figtext(0.13, 0.60, text_fitparsM)
-#
-# plt.figtext(0.13, 0.82, text_fitpars_M)
-#plt.xlabel('real component of eigenvalue')
+plt.stairs(J_counts, J_be, fill = True, alpha=0.8, label = 'J')
+plt.stairs(A_counts, A_be, alpha=0.8, label = 'A')
+plt.stairs(Mp_counts, Mp_be, alpha=0.8, label = "M'")
+plt.title(Jhist_title)
+plt.figtext(0.13, 0.66, mpar_text)
+if xstar == 1 and zrand == 0:
+    plt.plot(fitmx, gaussian(fitmx, *pars_Mp), '-', label="fit of M'")
+    plt.figtext(0.13, 0.63, Jfit_text)
+    plt.figtext(0.13, 0.60, Mfit_text)
+plt.xlabel('real component of eigenvalue')
 plt.ylabel('counts')
-#plt.plot(bin_centers, gaussian(bin_centers, *parsg), '-', label='fit of J')
-plt.plot(fitmx, gaussian(fitmx, *pars_mp), '-', label='fit of M prime')
-#plt.plot(bin_centersm, gaussian(bin_centersm, *parsgm), '-m')
-#plt.plot(bin_centers, gaussian_box(bin_centers, *pars), '-m')
-#plt.tight_layout()
 plt.legend()
 plt.grid()
 
-
-#figure: max eig of A/Mp vs max eig of J
-plt.figure(figsize=fsize)
-plt.plot(yjvals, yjvals, '--', label= 'x=y')
-plt.plot(maxeig_A, maxeig_J, '.', label = 'A')
-plt.plot(maxeig_Mp, maxeig_J, '.', label = "M'")
-plt.grid()
-plt.legend(loc='upper left')
-plt.xlabel(' Max (nonzero) eigenvalue of A, Mprime')
-plt.ylabel('Max eigenvalue of J')
-plt.figtext(0.15, 0.15, text_vars, bbox=box_par)
-
-
-#figure: max eig of A vs max eig ofMp
-plt.figure(figsize=fsize)
-plt.plot(maxeig_A, maxeig_Mp, '.')
-plt.grid()
-plt.xlabel(' Max (nonzero) eigenvalue of A')
-plt.ylabel('Max eigenvalue of Mprime')
-plt.figtext(0.15, 0.15, text_vars, bbox=box_par)
-
-
-
-#figure: max rowsum of A vs max nonzro eigenvalue of J'
-plt.figure(figsize=fsize)
-#plt.plot(yjvals, yjvals, '--', label= 'x=y')
-plt.plot(np.linspace(np.min(Ars_max), np.max(Ars_max), 3), 0*np.linspace(np.min(Ars_max), np.max(Ars_max), 3), '--k')
-plt.plot(0*np.linspace(np.min(maxeig_Mp), np.max(maxeig_Mp), 3), np.linspace(np.min(maxeig_Mp), np.max(maxeig_Mp), 3), '--k')
-plt.plot(Ars_max, maxeig_Mp, '.', color='C1', ms = 3, label = "M'")
-plt.plot(Ars_max, maxeig_J, '.', color='C0', ms = 3, label = "J")
-plt.grid()
-plt.title(plot_title2)
-plt.legend(loc='upper left')
-plt.xlabel(' Max rowsum of A')
-plt.ylabel("Max real eigenvalue of J / M'")
-
-plt.figure(figsize=fsize)
-plt.plot(n_survives, maxeig_J, '.')
-plt.grid()
-plt.xlabel('number of subspecies with nonzero final population')
-plt.ylabel('Max eigenvalue of Jacobian')
-
-plt.figure(figsize=fsize)
-plt.plot(maxeig_J, final_match, '.')
-plt.grid()
-plt.ylabel('final population match xstar set ')
-plt.xlabel('Max eigenvalue of Jacobian')
-
-
-
-
-
-
-
-'''
-plt.figure(figsize=fsize)
-plt.hist(np.real(eigs_complex), bins=nbins2)#, range=histrange)
-plt.title(hist2_title)
-plt.figtext(0.13, 0.12, hist2_text)
-#plt.xlabel('real component of eigenvalue')
-plt.ylabel('counts')
-#plt.plot(bin_centers2, circ(bin_centers2, *parsc), '-r')
-#plt.grid()
-
-plt.figure(figsize=fsize)
-plt.title('Real axis eigenvalues not in the gaussian')
-y_rect = counts-gaussian(bin_centers, *parsg)
-plt.plot(bin_centers, y_rect, '-b')
-#plt.grid()'''
-'''plt.figure(figsize=fsize)
-c_rs, b_rs = np.histogram(np.real(A_rowsums), bins=200)
-#c_rs = c_rs/np.sum(c_rs)
-b_crs_centers = np.real((b_rs[:-1] + b_rs[1:]) / 2)
-p0_rs = [runs, -2, 2*(n/2-1)*sigma2]
-pars_rs, cov_rs = curve_fit(gaussian, b_crs_centers, c_rs, p0_rs)
-
-plt.plot(b_crs_centers, c_rs)
-plt.plot(b_crs_centers, gaussian(b_crs_centers, *pars_rs), '-m')
-plt.plot(b_crs_centers, gaussian(b_crs_centers, pars_rs[0], -2, 2*(n/2-1)*sigma2), '-r')
-#print('predicted: ',p0_rs, ', actual: ',pars_rs)
-#plt.grid()'''
-
-if xstar == 0:  
+# region plots for xstar = 1
+if xstar == 1:
+    #figure: max eig of A/Mp vs max eig of J
     plt.figure(figsize=fsize)
-    plt.plot(maxeig_J, n_survives, '.')
+    plt.plot(yjvals, yjvals, '--', label= 'x=y')
+    plt.plot(maxeig_A, maxeig_J, '.', label = 'A')
+    plt.plot(maxeig_Mp, maxeig_J, '.', label = "M'")
     plt.grid()
+    plt.legend(loc='upper left')
+    plt.xlabel(' Max (nonzero) eigenvalue of A, Mprime')
+    plt.ylabel('Max eigenvalue of J')
+    plt.figtext(0.15, 0.15, text_vars, bbox=box_par)
+
+
+    '''#figure: max eig of A vs max eig ofMp
+    plt.figure(figsize=fsize)
+    plt.plot(maxeig_A, maxeig_Mp, '.')
+    plt.grid()
+    plt.xlabel(' Max (nonzero) eigenvalue of A')
+    plt.ylabel('Max eigenvalue of Mprime')
+    plt.figtext(0.15, 0.15, text_vars, bbox=box_par)'''
+
+    #figure: max rowsum of A vs max nonzro eigenvalue of J'
+    plt.figure(figsize=fsize)
+    plt.plot(np.linspace(np.min(Ars_max), np.max(Ars_max), 3), 0*np.linspace(np.min(Ars_max), np.max(Ars_max), 3), '--k')
+    plt.plot(0*np.linspace(np.min(maxeig_Mp), np.max(maxeig_Mp), 3), np.linspace(np.min(maxeig_Mp), np.max(maxeig_Mp), 3), '--k')
+    plt.plot(Ars_max, maxeig_Mp, '.', color='C1', ms = 3, label = "M'")
+    plt.plot(Ars_max, maxeig_J, '.', color='C0', ms = 3, label = "J")
+    plt.grid()
+    plt.title(maxrs_title)
+    plt.legend(loc='upper left')
+    plt.xlabel(' Max rowsum of A')
+    plt.ylabel("Max real eigenvalue of J / M'")
+
+
+if ranode == 1 or xstar == 0:
+    plt.figure(figsize=fsize)
+    plt.plot(n_survives, maxeig_J, '.')
+    plt.grid()
+    plt.xlabel('number of subspecies with nonzero final population')
+    plt.ylabel('Max eigenvalue of Jacobian')
+
+    plt.figure(figsize=fsize)
+    plt.hist2d(n_survives_noscale, n_survives, bins=n, norm=LogNorm(), cmap='viridis')
+    plt.colorbar()
+    plt.grid()
+    plt.title('Species survival with/without final populations constrained ')
+    plt.xlabel('Number of species remaining, without constraint')
+    plt.ylabel('Number of species remaining, with constraint')
+    plt.figtext(0.13, 0.12, text_species_survive)
 
 
 
-
-# plot of all the real components, regardless of being on the real axis 
-'''plt.figure(figsize=fsize)
-plt.hist(np.real(eigs_A), bins = nbins1, range = histrange, color='b', alpha = 0.4)
-plt.hist(np.real(eigs_M), bins = nbins1, range = histrange, color='r', alpha = 0.4)
-plt.hist(np.real(eigs), bins = nbins1, range = histrange, color='g', alpha = 0.4)
-plt.grid()'''
-
-
-
-
-'''plt.figure(figsize=fsize)
-plt.plot(np.real(eigs_M), np.imag(eigs_M))
-plt.grid()'''
-
-
-
-#plt.tight_layout()
-
-
-
-
-#plt.figure(figsize=fsize)
-#plt.hist(eigs_imag, nbins1)
-
-
-
+if xstar == 0:
+    plt.figure(figsize=fsize)
+    plt.plot(n_survives, Ars_max, 'o')
+    plt.xlabel('Number of subspecies remaining')
+    plt.ylabel('Max rowsum in A')
+    plt.grid()
 
 
 plt.show()
 #endregion
 
-
-    
+ 
 
 
     

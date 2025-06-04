@@ -9,7 +9,7 @@ import random
 
 n = 2
 
-x0 = x0_vec(n)
+x0 = x0_vec(n,1)
 sigma2 = 1**2/n
 C = 1
 t_end = 50     # length of time 
