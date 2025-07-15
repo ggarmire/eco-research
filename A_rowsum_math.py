@@ -12,8 +12,8 @@ import random
 import math
 
 #region variables to change
-K_set = 0.1
-n = 36
+K_set = 0.6
+n = 30
 C = 1
 sigma2 = K_set**2/n*2
 #sigma2 = 0.04
@@ -23,12 +23,13 @@ print('n: ', n, ', K: ', K_set, ', sigma^2: ', sigma2)
 A_rowsums = []
 A_eigs = []
 A_eigs_classic = []
+A_rs_max = []
 
 randoms = []
 
 One = np.ones(n)
 
-runs = 1000
+runs = 30
 
 s = int(n/2)
 
@@ -62,7 +63,7 @@ def gauss2(x, A, sigma2):
 
 # endregion
 
-
+pos_rs = 0
 # region loop 
 for run in range(runs):
     seed = run
@@ -83,6 +84,12 @@ for run in range(runs):
 
     A_eigs_classic.extend(Avals_classic)
 
+    A_rs_max.append(np.max(A_rs))
+
+    if np.max(A_rs) > 0:
+        pos_rs += 1
+    print('seed:', seed, ', A_rs:', np.max(A_rs))
+
     '''for i in range(s):
         rand = np.random.normal(0, (s-1)*sigma2) - 2
         randoms.append(rand)
@@ -91,6 +98,9 @@ for run in range(runs):
     #if abs(np.max(np.real(Avals))) <= 1e-10:
     #    print(seed)
 
+
+
+print('sigma2:', sigma2, ', K:', K_set, ', pct positive rowsums:', pos_rs/runs * 100, '%')
 #region post 
 
 A_eigs_realaxis = []
@@ -106,6 +116,9 @@ for i in range(len(A_eigs_classic)):
 
 # fit histogram of row sums 
 c_rs, b_rs = np.histogram(np.real(A_rowsums), bins=200)
+
+c_rs_max, be_rs_max = np.histogram(A_rs_max, bins = 50)
+bc_rs_max = (be_rs_max[:-1] + be_rs_max[1:]) / 2
 
 
 
@@ -143,6 +156,15 @@ plt.plot(b_rs_centers, gaussian(b_rs_centers, pars_rs[0], p0_rs[1], p0_rs[2]), l
 plt.xlabel('Rowsum of A')
 plt.ylabel('counts')
 plt.legend()
+plt.grid()
+
+plt.figure(figsize=fsize)
+plt.plot(bc_rs_max, c_rs_max)
+plt.xlabel('max rowsum in A')
+plt.ylabel('counts')
+plt.legend()
+plt.grid()
+
 
 #plt.plot(b_crs_centers, gauss2(b_crs_centers, *pars_rs2), '-b')
 #plt.plot(b_crs_centers, gaussian(b_crs_centers, pars_rs[0], -2, (s-1)*sigma2), '-r')

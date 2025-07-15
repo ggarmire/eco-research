@@ -8,13 +8,13 @@ from lv_functions import A_matrix
 from lv_functions import M_matrix
 from lv_functions import lv_LH
 from lv_functions import LH_jacobian
+from lv_functions import LH_jacobian_norowsum
 from lv_functions import x0_vec
 import random 
 import math
 
 seed = random.randint(0, 1000)
-#seed = 432 # 432 stable 644 unstable 
-print('\n\n')
+#seed = 725
 print("seed: ", seed)
 
 random.seed(1)
@@ -22,45 +22,46 @@ random.seed(1)
 #region initial conditions 
 
 # values to set 
-n = 6     # number of species 
+n = 20     # number of species 
 s = int(n / 2)
 x0 = x0_vec(n, 1)
 
-t = np.linspace(0, 500, 2000)
-K_set = 0.5
+#x0 = np.ones(n)
+#np.random.uniform(1, 0, n)
+t = np.linspace(0, 100, 1000)
+K_set = 0.7
 C = 1
 
-muc = -1
+muc = -0.5
 mua = -0.5
 f = 1.5
-g = 1.2
-z = (muc-mua+((muc-mua)**2 +4*g*f)**0.5)/(2*g)
-R_c = (z*muc+f)/z; R_a = z*g+mua
-print('z =','%.3f'%z, 'R child =', '%.3f'%R_c, ', R adult =', '%.3f'%R_a)
+g = 1
+
 
 # constraint settings 
 xstar = 0      #flag: 1 if constraining abundances 
+z = 1       # juvinile fraction 
+zrand = 0       # flag: 1 if random juvinile fractions per species
 
 # values that dont get set 
+#sigma2 = 0.1
 sigma2 = 2 * K_set**2 / n / C
 K = (sigma2*C*s)**0.5
 
 # checks:
 if n % 2 != 0:
     raise Exception("n is not a multiple of 2.")
-if K!=K_set:
-  raise Exception("K set does not match K.")
-if abs(R_c-R_a) > 1e-10:
-    raise Exception("error calculating R values.")
-# endregion set variables 
+#if K!=K_set:
+#  raise Exception("K set does not match K.")
 
 # region set matrices 
 A = A_matrix(n, C, sigma2, seed, LH=1)
 A_classic = A_matrix(int(n/2), C, sigma2, seed, LH=0)
 Avals, Avecs = np.linalg.eig(A)
 Avalsm = np.ma.masked_inside(Avals, -1e-10, 1e-10) 
+
 A_rowsums = np.dot(A, np.ones(n))
-print('max A rowsum:', '%.3f'%np.max(A_rowsums),'; real max A eig:', '%.3f'%np.max(np.real(Avalsm)))
+
 
 # for m matrix:
 M = M_matrix(n, muc, mua, f, g)
@@ -69,6 +70,10 @@ if xstar == 1:
     xs = np.ones(n)
     for i in range(0, n, 2):
         xs[i] = z
+    if zrand == 1:
+        np.random.seed(1)
+        xs = np.random.uniform(0.8, 2, n)
+        print('random abundnaces: ', xs)
     
     #print(xs)
     A_rows = np.dot(A, xs)
@@ -78,6 +83,8 @@ if xstar == 1:
     if np.max(np.diag(M)) > 0: print('M has a positive diagonal.')
     if np.min(np.diag(M, 1)) < 0: print('M has a negative f value.')
     if np.min(np.diag(M, -1)) < 0: print('M has a negative g value.')
+    #if np.max(np.diag(M)) > 0 or np.min(np.diag(M, 1)) < 0 or np.min(np.diag(M, -1)) < 0:
+    #    print('M: \n', M)
 
 
     # alternative 1: scale off diagonals of M
@@ -88,34 +95,14 @@ if xstar == 1:
 
     Mprime = M + np.diag(A_rows)
     mpvals, mpvecs = np.linalg.eig(Mprime)
-print('primary M eigs:', '%.3f'%mvals[0], '%.3f'%mvals[1], '%.3f'%mvals[2], '%.3f'%mvals[3])
-# endregion matrices 
-
-# region analytical final abundances
-A_inv = np.linalg.inv(A_classic)
-Rvec = R_a/(1+z) * np.ones(s)   # for in
-xf_an_adult = -np.dot(A_inv, Rvec)  # solve classical system
-xf_an = np.repeat(xf_an_adult, 2)   # make unscaled
-xf_an[::2] *= z     # scale child 
+#print('M: \n', M)
 
 
-Jac_an = LH_jacobian(A, M, xf_an)
-Janvals, Janvecs = np.linalg.eig(Jac_an)
-print('max eigenvalue of J_an:', np.max(np.real(Janvals)))
-
-# endregion
+print('max A rowsum:', np.max(A_rowsums),'; max A eig:', np.max(Avalsm))
 
 # region run function: 
 result = lv_LH(x0, t, A, M)
-xf = result[-1,:]
-#print('xf: ', xf)
-
-A_scaled = np.multiply(np.outer(xf, np.ones(n)), A)
-A_rows_scaled = np.dot(A, xf)
-Mp = M +np.diag(A_rows_scaled) 
-
-Mpvals, Mpvecs = np.linalg.eig(Mp)
-#print('Mp eigs: ', Mpvals)
+print('final pops:\n', result[-1,:])
 
 #%% Stats: 
 species_left = 0
@@ -125,13 +112,18 @@ for i in range(n):
         species_left+=1
         if abs((result[-1, i]-result[-2, i]) / result[-1, i]) < 0.001:
             species_stable +=1
+    #elif result[-1, i] < 1e-3:
+    #    print('species', i, 'died, A eig:', Avals[i])
 
-print("species remaining:", species_left)
+print("species remaining:", species_left, "sepcies stable: ", species_stable)
 
 
 
 # region Calculate the Jacobian
-Jac = LH_jacobian(A, M, result[-1, :])
+if xstar ==1:
+    Jac = LH_jacobian(n, A, M, xs) 
+elif xstar == 0:
+    Jac = LH_jacobian_norowsum(result[-1, :], A, M)
 #print("Jacobian: ", Jac)
 Jvals, Jvecs = np.linalg.eig(Jac)
 
@@ -154,7 +146,6 @@ box_par = dict(boxstyle='square', facecolor='white', alpha = 0.5)
 
 # region figures 
 
-# evolution of populations
 plt.figure()
 plt.grid()
 if xstar == 1:
@@ -175,47 +166,24 @@ plt.xlabel('Time t')
 plt.ylabel('Population density')
 plt.figtext(0.13, 0.12, plot_text)
 plt.figtext(0.4, 0.6, plot_text2, bbox=box_par)
+#plt.figtext(0.5, 0.80, plot_text3)
+#plt.figtext(0.5, 0.76, plot_text4)
+plt.semilogx
+
 legend_elements = [Line2D([0], [0], marker = 'o', color='C0', mfc = 'none', label='child'),
                    Line2D([0], [0], marker = 'o', color='C0', label='adult')]
 plt.legend(handles=legend_elements)
 
-# eigenvalues, analytica
+#plt.ylim(-0.1, 6)
+
+#plt.ylim(min(0, np.min(result)-0.1), 1.1*np.max(result))
+
 plt.figure()
 plt.grid()
 plt.plot(np.real(Jvals), np.imag(Jvals), '.')
-plt.plot(np.real(Mpvals), np.imag(Mpvals), '.', label= "M' eigs")
-plt.title('eigenvalues of Jacobian, numerical')
+plt.title('eigenvalues of Jacobian')
 plt.xlabel('real component')
 plt.ylabel('imaginary component')
-plt.legend()
-
-# eigenvaluesm analytical
-plt.figure()
-plt.grid()
-plt.plot(np.real(Janvals), np.imag(Janvals), '.')
-plt.title('eigenvalues of Jacobian, analytical')
-plt.xlabel('real component')
-plt.ylabel('imaginary component')
-
-# final pops- analytical vs numerucal
-plt.figure()
-plt.grid()
-plt.plot(np.linspace(0, 1.1*np.max(xf),10),np.linspace(0, 1.1*np.max(xf),10),'--', label = 'y=x')
-plt.plot(xf_an, xf, 'o', label = 'populations')
-plt.xlabel('final populations, analytically found')
-plt.ylabel('final populations, numerically found')
-plt.legend()
-
-'''plt.figure()
-plt.grid()
-plt.plot(xf_an, np.divide(xf_an-xf, xf_an), '.')
-plt.xlabel('analytical solution')
-plt.ylabel('fractional difference between analytical and numerical')'''
-
-
 
 
 plt.show()
-
-
-print('\n\n')

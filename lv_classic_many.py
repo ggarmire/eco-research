@@ -5,14 +5,15 @@ import matplotlib.pyplot as plt
 from scipy import integrate
 from lv_functions import A_matrix
 from lv_functions import x0_vec
+from lv_functions import lv_classic
 import random 
 
-n = 2
+n = 20
 
 x0 = x0_vec(n,1)
 sigma2 = 1**2/n
 C = 1
-t_end = 50     # length of time 
+t_end = 100     # length of time 
 Nt = 1000
 K = (C*sigma2*n)**0.5
 print("complexity: ", K)
@@ -27,38 +28,31 @@ eigs_real = np.zeros((n, runs))
 eigs_imag = np.zeros((n, runs))
 eigs_real_max = np.zeros(runs)
 
+abundances = []
+
 
 for run in range(runs):
     seed = run
     np.random.seed(seed)
-
     A = A_matrix(n, C, sigma2, seed, LH=0) 
-
-    A_rowsums = np.zeros(n)
+    A_rowsums = np.dot(A, np.ones(n))
 
     r = -np.dot(A, np.ones(n))      # this is what makes all the equilibrium populations the same. 
-            
+    #r = np.ones(n)
     evals, evecs = np.linalg.eig(A)
 
     #print("max eigenvalue: ", np.max(np.real(evals)))
 
-    def derivative(x, t, r, A):
-        for i in range(0, n):
-            if x[i] <=0:
-                x[i] = 0
-        dxdt = np.multiply(r, x) + np.multiply(x, np.dot(A, x))
-        for i in range(0, n):
-            if x[i]<=0:
-                    dxdt[i] == 0
-        return dxdt
 
     t = np.linspace(0, t_end, Nt)
-    result = integrate.odeint(derivative, x0, t, args = (r, A))
+    result = lv_classic(x0, t, A, r)
+
+    xf = result[-1, :]
 
     species_left = 0
     species_stable = 0
     for i in range(n):
-        if result[-1, i] > 1e-4:
+        if xf[i] > 1e-4:
             species_left+=1
         if abs(result[-1, i] - result [-2, i]) < 1e-4:
             species_stable += 1
@@ -73,7 +67,7 @@ for run in range(runs):
         k = np.argmax(np.real(evals)) 
         if np.imag(evals)[k] != 0:
             print('seed:', seed, 'max real eig:', np.max(np.real(evals)), ', species left: ', species_left)
-    
+    abundances.extend(xf)
 
 
 
@@ -94,6 +88,10 @@ plt.title("max real eigenvalue vs. number of stable species")
 plt.xlabel('max real component of an eigenvalue')
 plt.ylabel('number of stable species')
 plt.plot(eigs_real_max, n_stable, 'o', ms=3)
+
+plt.figure()
+plt.hist(abundances, bins=100)
+plt.grid()
 
 
 

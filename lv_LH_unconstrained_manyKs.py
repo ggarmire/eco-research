@@ -16,11 +16,12 @@ from lv_functions import LH_jacobian
 from lv_functions import LH_jacobian_norowsum
 import random 
 from matplotlib.colors import LogNorm
+import time
 
 #region Set Variables 
 
 # stuff that gets changed: 
-n = 60
+n = 20
 runs = 500
 
 # A matrix 
@@ -28,10 +29,10 @@ random.seed(1)
 C = 1
 
 # M matrix 
-muc = -0.5
+muc = -0.8
 mua = -0.5
 f = 1.5
-g = 1
+g = 1.2
 
 
 # stuff that does not get changed:
@@ -41,13 +42,14 @@ x0 = x0_vec(n, 1)
 t = np.linspace(0, 200, 500)
 M = M_matrix(n, muc, mua, f, g)
 One = np.ones(n)
-nk = 20
-Ks = np.linspace(0.1, 1.2, nk)
+nk = 13
+Ks = np.linspace(1.1, 0.1, nk)
 pct_stables = []
 sigmas_A = []
 sigma2s_A = []
 
 for Kval in Ks:
+    start = time.time()
     n_survives = []     # number of subspecies that survive 
 
     K_set = Kval
@@ -77,7 +79,8 @@ for Kval in Ks:
     
     pct_blk_stable = n_survives.count(n) / runs * 100
     pct_stables.append(pct_blk_stable)
-    print('K:', K_set, ', pct stable:', pct_blk_stable)
+    end = time.time()
+    print('K:', K_set, ', pct stable:', pct_blk_stable, 'took ', end-start, ' seconds')
 
 
 
@@ -98,6 +101,7 @@ plt.ylabel('percent of runs with stability')
 plt.xlabel('K value')
 plt.title('percentage stable of '+str(runs)+'random cases changing K')
 plt.grid()
+#plt.ylim(0.06, 1.24)
 
 # plot sigma vs percent of cases stable 
 plt.figure(figsize=fsize)
@@ -107,6 +111,7 @@ plt.ylabel('percent of runs with stability')
 plt.xlabel('sigma used to construct A')
 plt.title('percentage stable of '+str(runs)+'random cases changing sigma')
 plt.grid()
+
 
 
 

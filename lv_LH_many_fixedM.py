@@ -12,7 +12,7 @@ import random
 
 n = 20
 
-x0 = x0_vec(n)
+x0 = x0_vec(n, 1)
 
 C = 1    # connectedness|
 sigma2 = 0.99**2/n;       ## variance in off diagonals of interaction matrix

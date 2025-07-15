@@ -17,8 +17,8 @@ xstar = 1
 
 #%% initial conditions and such 
 n = 10     # number of species 
-x0 = x0_vec(n, 1)
-
+#x0 = x0_vec(n, 1)
+x0 = np.random.normal(1, 0.001, n)
 K_set = 1.1
 
 

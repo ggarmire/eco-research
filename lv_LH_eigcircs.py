@@ -16,24 +16,25 @@ from matplotlib.colors import LogNorm
 #region Set Variables 
 
 # stuff that gets changed: 
-n = 6
+n = 50
 runs = 500
 
 # A matrix 
 
-K_set = 0.5
+K_set = 0.
 C = 1
 
 # M matrix 
 muc = -0.5
 mua = -0.5
-f = 1.5
+f = 1
 g = 1
 
-z = 0.7
+z = 1.224744871391589
+z=1
 
-xstar = 1       # 1 constrains the final pops 
-zrand = 1      # 1 randomizes juvinile fractions
+xstar = 0       # 1 constrains the final pops 
+zrand = 0      # 1 randomizes juvinile fractions
 runode = 1      # 1 runs the ODE solver for each A matrix (not necessary for xstar=0)
 
 
@@ -44,11 +45,14 @@ sigma2 = K_set**2/n*2
 xs = np.ones(n)
 for i in range(0, n, 2):
     xs[i] = z
-if zrand == 1:  
-    np.random.seed(1)
-    xs = np.random.uniform(0.8, 2, n)
-t = np.linspace(0, 200, 500)
+'''if zrand == 1:  
+    np.random.seed(4)
+    xs = np.random.uniform(0.8, 2, n)'''
+t = np.linspace(0, 300, 600)
 M_pre = M_matrix(n, muc, mua, f, g)
+
+One = np.ones(n)
+
 print('n:', n, ', sigma:', '%.3f'%(sigma2**0.5))
 
 print('xs:', xs)
@@ -57,16 +61,31 @@ print('xs:', xs)
 eigs_J = []     # eigenvalues of the jacobian 
 eigs_J_died = []        # eigenvalues when not all species survive 
 
+
 eigs_M = []     # eigenvlaues of M after scaling 
 eigs_Mp = []        # eigenvalues of M+delta term 
 eigs_A = []     # eigenvalues of A 
 
 A_rowsums = []      # rowsums of A 
 Ars_max = []        # max rowsum of A 
+Ars_max_unphysical = []        # max rowsum of A 
 Ars_max_scaled = []        # max rowsum of A 
 
+Ars_max = []        # max rowsum of A 
+Ars_max_unphysical = []        # max rowsum of A 
+
+Ars_max_physical_stable = []        # max rowsum of A 
+Ars_max_unphysical_stable = []        # max rowsum of A 
+Ars_max_physical_unstable = []        # max rowsum of A 
+Ars_max_unphysical_unstable = []        # max rowsum of A 
+
+maxeig_J_physical_stable = []
+maxeig_J_unphysical_stable = []
+maxeig_J_physical_unstable = []
+maxeig_J_unphysical_unstable = []
 
 maxeig_J = []       # max eigenvalue for each run
+
 maxeig_A = []
 maxeig_M = []
 maxeig_Mp = []
@@ -86,12 +105,18 @@ for run in range(runs):
     if run %87 == 0:
         print(run)
 
+    if zrand == 1:  
+        xs = np.random.uniform(0.8, 2, n)
+
     # make A matrix 
     A = A_matrix(n, C, sigma2, seed, LH=1)      #random a matrix 
-    A_rows = np.dot(A, xs)
+    A_rows = np.dot(A, One)
+    A_rows_scaled = np.dot(A, xs)
     A_rowsums.extend(A_rows)
-    Ars_max_scaled.append(np.max(A_rows))
-    Ars_max.append(np.max(np.dot(A, np.ones(n))))
+    Ars_max_scaled.append(np.max(A_rows_scaled))
+    Ars_max_run = np.max(A_rows)
+    Ars_max.append(Ars_max_run)
+
 
     Avals, Avecs = np.linalg.eig(A)
     eigs_A.extend(Avals)
@@ -102,36 +127,15 @@ for run in range(runs):
     elif xstar == 1:
         #normal scaling: scale each row of M
         M_rows = np.dot(M_pre, xs)
-        scales = -np.divide(np.multiply(A_rows, xs), M_rows)
-        M = np.multiply(M_pre, np.outer(scales, np.ones(n)))  
-        '''# alternative 1: scale off diagonals of M
-        M = M_pre
-        for row in range(0, n, 2):
-            M[row][row+1] = -z*muc - A_rows[row]
-            M[row+1][row] = 1/z * (-mua - A_rows[row])'''
-    # alternative 2: scale off diagonals of A
-
-        M_row_post = -np.dot(M, xs)
-        
-        '''if A_rows.all != M_row_post.all: 
-            print('rowsums dont match!')
-            print('A rowsums: \n', np.multiply(xs, A_rows))
-            print('M rowsums: \n', M_row_post)'''
-
-
-    Mp = M + np.diag(A_rows)        # mprime = m + delta
-
-    Mvals, Mvecs = np.linalg.eig(M)
-    Mpvals, Mpvecs = np.linalg.eig(Mp)
-    
-    eigs_M.extend(Mvals)
-    eigs_Mp.extend(Mpvals)
+        scales = -np.divide(np.multiply(A_rows_scaled, xs), M_rows)
+        M = np.multiply(M_pre, np.outer(scales, np.ones(n)))
 
     # calculate jacobian given final values 
     if xstar == 1:
         Jac = LH_jacobian(n, A, M, xs) 
         Jvals, Jvecs = np.linalg.eig(Jac) 
     
+    stable = 1
     # run ODE solver 
     ranode = 0
     if xstar == 0 or runode == 1:
@@ -160,17 +164,49 @@ for run in range(runs):
         if n_survive < n:
             eigs_J_died.extend(Jvals)
             maxeig_J_complex_died.append(np.max(Jvals))
-            
-        if n_survive == n and np.max(A_rows) > 0: # and np.max(Jvals) < 0 
-            print('seed:', seed, 'max real eig:',np.max(Jvals), 'species left:', n_survive, ', max rowsum in A: ', np.max(A_rows))
-            print('final pops:', xf)
+            stable = 0
+    
+    if xstar == 0:      
+        Mp = M + np.diag(np.dot(A, xf_noscale))        
+    elif xstar == 1:
+        Mp = M + np.diag(A_rows_scaled)
 
+    Mvals, Mvecs = np.linalg.eig(M)
+    Mpvals, Mpvecs = np.linalg.eig(Mp)
+    
+    eigs_M.extend(Mvals)
+    eigs_Mp.extend(Mpvals)
 
 
     #print('size of jacobian: ', np.size(Jac))
-      
-
     eigs_J.extend(Jvals)
+
+    maxeig_J_run = np.max(Jvals).real
+
+    unphysical = 0
+    if np.max(np.diag(M)) > 0 or np.min(np.diag(M, 1)) < 0 or np.min(np.diag(M, -1)) < 0:
+    #if np.min(np.diag(M, 1)) < 0 or np.min(np.diag(M, -1)) < 0:
+        unphysical = 1
+
+    if maxeig_J_run > 0: 
+        stable == 0
+
+    #print(Ars_max_run, maxeig_J_run, n_survive)
+    if unphysical == 0:
+        if stable == 1:
+            Ars_max_physical_stable.append(Ars_max_run)
+            maxeig_J_physical_stable.append(maxeig_J_run)
+        elif stable == 0: 
+            Ars_max_physical_unstable.append(Ars_max_run)
+            maxeig_J_physical_unstable.append(maxeig_J_run)
+    elif unphysical == 1:
+        if stable == 1:
+            Ars_max_unphysical_stable.append(Ars_max_run)
+            maxeig_J_unphysical_stable.append(maxeig_J_run)
+        elif stable == 0: 
+            Ars_max_unphysical_unstable.append(Ars_max_run)
+            maxeig_J_unphysical_unstable.append(maxeig_J_run)
+
     
 
     Avalsm = np.ma.masked_inside(Avals, -1e-10, 1e-10)      # nonzero eigenvalues of the two, since the zeros dissapear later 
@@ -181,8 +217,8 @@ for run in range(runs):
     maxeig_Mp.append(np.max(np.real(Mpvalsm)))
     maxeig_J_complex.append(np.max(Jvals))
 
-    #if np.max(np.real(Jvals))>0:
-    #    print('seed: ', seed, ', max eig:', np.max(np.real(Jvals)))
+    if Ars_max_run > 0 and stable == 0:
+        print('seed: ', seed, ', max rs:', Ars_max_run)
 
 
         
@@ -292,10 +328,10 @@ p0_Mp = [A_guess, 2*l2p, s2M]
 print('pars guess for M prime:', p0_Mp)
 
 # fit Mprime and J with the same guess 
-pars_Mp, cov_Mp = curve_fit(gaussian, fitmx, fitmy, p0_Mp, maxfev=5000)
-pars_J, cov_J = curve_fit(gaussian, fitjx, fitjy, p0_Mp, maxfev=5000)
-print('fit parameters of M prime:', pars_Mp)
-print('fit parameters of J gauss:', pars_Mp)
+#pars_Mp, cov_Mp = curve_fit(gaussian, fitmx, fitmy, p0_Mp, maxfev=5000)
+#pars_J, cov_J = curve_fit(gaussian, fitjx, fitjy, p0_Mp, maxfev=5000)
+#print('fit parameters of M prime:', pars_Mp)
+#print('fit parameters of J gauss:', pars_Mp)
 
 
 
@@ -308,8 +344,8 @@ if zrand == 1: maxrs_title = str('Max Eigenvalues vs. rowsum: n='+str(int(n/2))+
 Jhist_title = str('Real eigenvalues of J: : n='+str(int(n/2))+'*2, z='+str(z)+', K='+str(K_set))
 
 mpar_text = str('$\u03bc_c =$'+str(muc)+', $\u03bc_a =$'+str(mua)+', $f=$'+str(f)+', $g =$'+str(g)+'; '+str('%.0f'%(np.max(nzeros/n/runs*100)))+'% on x=0')
-Jfit_text = str('J fit mean: '+str('%0.3f'%pars_J[1])+', sigma^2: '+str('%0.3f'%pars_J[2])+', A= '+str('%0.3f'%pars_J[0]))
-Mfit_text = str("M' fit mean: "+str('%0.3f'%pars_Mp[1])+', sigma^2: '+str('%0.3f'%pars_Mp[2])+', A= '+str('%0.3f'%pars_Mp[0]))
+#Jfit_text = str('J fit mean: '+str('%0.3f'%pars_J[1])+', sigma^2: '+str('%0.3f'%pars_J[2])+', A= '+str('%0.3f'%pars_J[0]))
+#Mfit_text = str("M' fit mean: "+str('%0.3f'%pars_Mp[1])+', sigma^2: '+str('%0.3f'%pars_Mp[2])+', A= '+str('%0.3f'%pars_Mp[0]))
 
 box_par = dict(boxstyle='square', facecolor='white')
 text_vars = str("$\lambda_2'=$"+ str(m2-1) + '\n $\sigma_a =$'+ str(sigma2**0.5)+'\n s = '+str(n/2))
@@ -338,8 +374,11 @@ plt.grid()
 plt.title(Jeigs_title)
 plt.xlabel('real component')
 plt.ylabel('imaginary component')
-plt.plot(np.real(eigs_J), np.imag(eigs_J), 'o', ms=2, label='all survive')
-plt.plot(np.real(eigs_J_died), np.imag(eigs_J_died), 'o', ms=2, label='some species died')
+plt.plot(np.real(eigs_J), np.imag(eigs_J), 'o', ms=2, color ='C0', alpha=0.5, label='J')
+plt.plot(np.real(eigs_A), np.imag(eigs_A), 'o', ms=2, color = 'C2', alpha=0.5, label="A")
+plt.plot(np.real(eigs_Mp), np.imag(eigs_Mp), 'o', ms=2, color = 'C1', alpha=0.5, label="M'")
+
+#plt.plot(np.real(eigs_J_died), np.imag(eigs_J_died), 'o', ms=2, label='some species died')
 #plt.plot(np.real(eigs_Mp), np.imag(eigs_Mp), 'o', ms=2, alpha=.3, label = "M'")
 #plt.plot(np.real(eigs_A), np.imag(eigs_A), 'o', ms=2, alpha=.3, label = 'A')
 plt.figtext(0.13, 0.12, mpar_text)
@@ -368,10 +407,10 @@ plt.stairs(A_counts, A_be, alpha=0.8, label = 'A')
 plt.stairs(Mp_counts, Mp_be, alpha=0.8, label = "M'")
 plt.title(Jhist_title)
 plt.figtext(0.13, 0.66, mpar_text)
-if xstar == 1 and zrand == 0:
+'''if xstar == 1 and zrand == 0:
     plt.plot(fitmx, gaussian(fitmx, *pars_Mp), '-', label="fit of M'")
     plt.figtext(0.13, 0.63, Jfit_text)
-    plt.figtext(0.13, 0.60, Mfit_text)
+    plt.figtext(0.13, 0.60, Mfit_text)'''
 plt.xlabel('real component of eigenvalue')
 plt.ylabel('counts')
 plt.legend()
@@ -403,13 +442,16 @@ if xstar == 1:
     plt.figure(figsize=fsize)
     plt.plot(np.linspace(np.min(Ars_max), np.max(Ars_max), 3), 0*np.linspace(np.min(Ars_max), np.max(Ars_max), 3), '--k')
     plt.plot(0*np.linspace(np.min(maxeig_Mp), np.max(maxeig_Mp), 3), np.linspace(np.min(maxeig_Mp), np.max(maxeig_Mp), 3), '--k')
-    plt.plot(Ars_max, maxeig_Mp, '.', color='C1', ms = 3, label = "M'")
-    plt.plot(Ars_max, maxeig_J, '.', color='C0', ms = 3, label = "J")
+    #plt.plot(Ars_max, maxeig_J, '.', color='C0', label = "J eigenvalues")
+    plt.plot(Ars_max_physical_unstable, maxeig_J_physical_unstable, '.', color = 'C0',  label = 'physical M, unstable: '+str(len(Ars_max_physical_unstable)))
+    plt.plot(Ars_max_physical_stable, maxeig_J_physical_stable, '.', color = 'C2', label = 'physical M, stable: '+str(len(Ars_max_physical_stable)))
+    plt.plot(Ars_max_unphysical_unstable, maxeig_J_unphysical_unstable, '.', color = 'C3', label = 'unphysical M, unstable: '+str(len(Ars_max_unphysical_unstable)))
+    plt.plot(Ars_max_unphysical_stable, maxeig_J_unphysical_stable, '.', color = 'C4', label = 'unphysical M, stable: '+str(len(Ars_max_unphysical_stable)))
     plt.grid()
     plt.title(maxrs_title)
     plt.legend(loc='upper left')
     plt.xlabel(' Max rowsum of A')
-    plt.ylabel("Max real eigenvalue of J / M'")
+    plt.ylabel("Max real eigenvalue of J'")
 
 
 if ranode == 1 or xstar == 0:

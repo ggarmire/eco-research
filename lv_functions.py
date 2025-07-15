@@ -25,12 +25,13 @@ def A_matrix(n, C, sig2, seed, LH):
     A = np.zeros((n, n))
     random.seed(seed)
     np.random.seed(seed)
+    a = -1
     if LH ==1:
         for i in range (0, n, 2):   # set each block at once
-            A[i][i] = -1
-            A[i+1][i] = -1
-            A[i][i+1] = -1
-            A[i+1][i+1] = -1
+            A[i][i] = a
+            A[i+1][i] = a
+            A[i][i+1] = a
+            A[i+1][i+1] = a
             for j in range(0, n, 2):
                 num = random.random()
                 if A[i][j] == 0:
@@ -164,19 +165,12 @@ def lv_classic(x0, t, A, r):
 
 
 #%% Jacobian
-def LH_jacobian(n, A, M, xs):
-    delta = np.diag(np.dot(A, xs))
-    Ax = np.multiply(np.outer(np.ones(n), xs), A)
-
+def LH_jacobian(A, M, xf):
+    n = len(xf)
+    delta = np.diag(np.dot(A, xf))
+    Ax = np.multiply(np.outer(np.ones(n), xf), A)
     J = M + delta + Ax
     return J
 
-
-def LH_jacobian_norowsum(xf, A, M):
-    n = len(xf)
-    delta = np.diag(np.dot(A, xf))
-    Axf = np.multiply(np.outer(xf, np.ones(n)), A)
-    J = M+ delta + Axf
-    return J
 
 
