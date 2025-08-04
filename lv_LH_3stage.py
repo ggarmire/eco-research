@@ -1,4 +1,4 @@
-
+print('\n')
 #%% libraries 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -9,7 +9,6 @@ from lv_functions import A_matrix3
 from lv_functions import M_matrix3
 from lv_functions import lv_LH
 from lv_functions import LH_jacobian
-from lv_functions import LH_jacobian_norowsum
 from lv_functions import x0_vec
 import random 
 import math
@@ -22,22 +21,17 @@ print("seed: ", seed)
 #region initial conditions 
 
 # values to set 
-n = 30     # number of species 
+n = 21     # number of species 
 x0 = x0_vec(n, 1)
-t = np.linspace(0, 30, 1000)
+t = np.linspace(0, 100, 2000)
 K_set = 0.7
 C = 1
 
-muc = -0.5
-mua = -0.5
-f = 1.5
-g = 1
-
-
+mu1 = -0.5; mu2 = -0.6; mu3 = -0.7
+f12 = 1.4; f13 = 1.5; f23 = 1.6
+g21 = 0.9; g31 = 1; g32 = 1.1
 # constraint settings 
 xstar = 1       #flag: 1 if constraining abundances 
-z = 2       # juvinile fraction 
-zrand = 0       # flag: 1 if random juvinile fractions per species
 
 # values that dont get set 
 s = int(n / 3)
@@ -52,36 +46,50 @@ if K!=K_set:
 
 # region set matrices 
 A = A_matrix3(n, C, sigma2, seed)
-A_classic = A_matrix(int(n/2), C, sigma2, seed, LH=0)
+A_classic = A_matrix(s, C, sigma2, seed, LH=0)
 Avals, Avecs = np.linalg.eig(A)
+
+M = M_matrix3(n, mu1, mu2, mu3, f12, f13, f23, g21, g31, g32)
+#print(M)
 
 A_rowsums = np.dot(A, np.ones(n))
 print('max A rowsums:', np.max(A_rowsums))
 
-# for m matrix:
-M = M_matrix3(n, muc, mua, f, g)
-mvals, mvecs = np.linalg.eig(M)
-if xstar == 1:
-    xs = np.ones(n)
-    for i in range(0,n,3):
-        xs[i] = z
-        xs[i+1] = z
-    #print(xs)
-    A_rows = np.dot(A, xs)
-    M_rows = np.dot(M, xs)
-    scales = -np.divide(np.multiply(A_rows, xs), M_rows)
-    M = np.multiply(M, np.outer(scales, np.ones(n)))
-
-    Mprime = M + np.diag(A_rows)
-    mpvals, mpvecs = np.linalg.eig(Mprime)
-
-#print('A: \n', A)
-#print('M: \n', M)
-
-# region run function: 
 result = lv_LH(x0, t, A, M)
 
+xf = result[-1, :]
+print(xf)
+
+i_live = 0
+while xf[i_live] < 1e-5:
+    i_live += 3
+
+z1 = xf[i_live]/xf[i_live+2]; z2 = xf[i_live+1]/xf[i_live+2]
+zvec = []
+for i in range(s):
+    zvec.extend([z1, z2, 1])
+
+R = g31*z1 + g32*z2 + mu3
+Rvec = R*np.ones(s)/(1+z1+z2)
+print('R:', R)
+
+if (R - 1/z2 * (g21*z1 + mu2*z2 + f23))/R > 1e-5:
+    raise Exception("issue in the Rs.")
+
+print('z1:', z1, ', z2:', z2)
+
+# solve for analytical soln and jacobian:
+A_inv = np.linalg.inv(A_classic)
+xf_adult_an = -np.dot(A_inv, Rvec)
+print('xf classical: ', xf_adult_an)
+xf_an = np.repeat(xf_adult_an, 3)   # make unscaled
+xf_an = np.multiply(xf_an, zvec)
+
+print('analytical xf: ', xf_an)
+
 #%% Stats: 
+
+
 species_left = 0
 species_stable = 0
 for i in range(n):
@@ -93,10 +101,8 @@ for i in range(n):
 print("species remaining:", species_left, "sepcies stable: ", species_stable)
 
 # region Calculate the Jacobian
-if xstar ==1:
-    Jac = LH_jacobian(n, A, M, xs) 
-elif xstar ==0:
-    Jac = LH_jacobian_norowsum(result[-1, :], A, M)
+Jac = LH_jacobian(A, M, xf_an) 
+
 #print("Jacobian: ", Jac)
 Jvals, Jvecs = np.linalg.eig(Jac)
 
@@ -104,15 +110,14 @@ Jvals, Jvecs = np.linalg.eig(Jac)
 
 colors = ['C0', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9']
 
-plot_text = str('$\mu_c =$'+str(muc)+', $\mu_a =$'+str(mua)+', $f =$'+str(f)+', $g =$'+str(g)+', A seed ='+str(seed)+ ', K='+str('%.3f'%K))
+#plot_text = str('$\mu_c =$'+str(muc)+', $\mu_a =$'+str(mua)+', $f =$'+str(f)+', $g =$'+str(g)+', A seed ='+str(seed)+ ', K='+str('%.3f'%K))
+plot_text = str('text')
 if xstar == 1:
     plot_text2 = str('Max real eigenvalue of J: '+ str('%.3f'%(np.max(np.real(Jvals)))) + 
-                    '\n Max real eigenvalue of Mprime: '+ str('%.3f'%(np.max(np.real(mpvals))))
-                    +'\n Max real eigenvalue of A: '+ str('%.3f'%(np.max(np.real(Avals)))))
+                    '\n Max real eigenvalue of A: '+ str('%.3f'%(np.max(np.real(Avals)))))
 elif xstar == 0:
     plot_text2 = str('Max real eigenvalue of J: '+ str('%.3f'%(np.max(np.real(Jvals)))) + 
-                    '\n Max real eigenvalue of M (unscaled): '+ str('%.3f'%(np.max(np.real(mvals))))
-                    +'\n Max real eigenvalue of A: '+ str('%.3f'%(np.max(np.real(Avals)))))
+                    '\n Max real eigenvalue of A: '+ str('%.3f'%(np.max(np.real(Avals)))))
 
 box_par = dict(boxstyle='square', facecolor='white', alpha = 0.5)
 
@@ -121,10 +126,8 @@ box_par = dict(boxstyle='square', facecolor='white', alpha = 0.5)
 
 plt.figure()
 plt.grid()
-if xstar == 1:
-    title = str('Species Population over time, N=3S='+str(n)+', x*=1, z = '+str(z))
-elif xstar ==0: 
-    title = str('Species Population over time, f='+str(f)+', x*/=1')
+
+title = str('Species Population over time, N=3S='+str(n)+', x*=1, z = '+str(z1))
 plt.title(title)
 #plt.title("Species Population over time, f=0.49, x*=1")
 for i in range(n):
@@ -149,9 +152,12 @@ legend_elements = [Line2D([0], [0], marker = 'o', color='C0', mfc = 'none', labe
                    Line2D([0], [0], marker = 'o', color='C0', label='adult')]
 plt.legend(handles=legend_elements)
 
-#plt.ylim(-0.1, 6)
 
-#plt.ylim(min(0, np.min(result)-0.1), 1.1*np.max(result))
-
-
+# plot the analytical vs numerical final pops: 
+plt.figure()
+plt.plot(np.linspace(0, 1.1*np.max(xf),10),np.linspace(0, 1.1*np.max(xf),10),'--', label = 'y=x')
+plt.plot(xf_an, xf, 'o', label = 'populations')
+plt.grid()
 plt.show()
+
+print('\n')

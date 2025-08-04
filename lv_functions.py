@@ -17,7 +17,6 @@ def x0_vec(n, seed):
 
 #%% Matrices 
 def A_matrix(n, C, sig2, seed, LH):
-
     # n = number of species 
     # C = connectedness (prob of nonzero a_ij)
     #sig2 = sigma^2 of normal distribution of nonzero a_ij's
@@ -42,7 +41,6 @@ def A_matrix(n, C, sig2, seed, LH):
                         A[i][j+1] = val
                         #A[i][j+1] = A[i][j]
                         A[i+1][j] = val
-    
     if LH == 0:
         for i in range (0,n):
             A[i][i] = -1
@@ -51,9 +49,6 @@ def A_matrix(n, C, sig2, seed, LH):
                 if A[i][j] == 0:
                     if num < C:
                         A[i][j] = np.random.normal(0, sig)
-                        
-
-    #   print(r)
     return A
 
 def A_matrix3(n, C, sig2, seed):
@@ -81,6 +76,56 @@ def A_matrix3(n, C, sig2, seed):
 
     return A
 
+def A_matrix_juvscale(n, C, sig2, seed, jscale):
+    # n = number of species 
+    # C = connectedness (prob of nonzero a_ij)
+    #sig2 = sigma^2 of normal distribution of nonzero a_ij's
+    sig = sig2**0.5
+    A = np.zeros((n, n))
+    random.seed(seed)
+    np.random.seed(seed)
+    a = -1
+    for i in range (0, n, 2):   # set each block at once
+        A[i][i] = a
+        A[i+1][i] = a
+        A[i][i+1] = a
+        A[i+1][i+1] = a
+        for j in range(0, n, 2):
+            num = random.random()
+            if A[i][j] == 0:
+                if num < C:
+                    val = np.random.normal(0, sig)
+                    A[i][j] = jscale * val
+                    A[i+1][j] = jscale * val
+                    A[i+1][j+1] = val
+                    A[i][j+1] = val
+    return A
+
+def A_matrix_juvscale2(n, C, sig2, seed, jscale):
+    # n = number of species 
+    # C = connectedness (prob of nonzero a_ij)
+    #sig2 = sigma^2 of normal distribution of nonzero a_ij's
+    sig = sig2**0.5
+    A = np.zeros((n, n))
+    random.seed(seed)
+    np.random.seed(seed)
+    a = -1
+    for i in range (0, n, 2):   # set each block at once
+        A[i][i] = jscale * a
+        A[i+1][i] = jscale * a
+        A[i][i+1] = a
+        A[i+1][i+1] = a
+        for j in range(0, n, 2):
+            num = random.random()
+            if A[i][j] == 0:
+                if num < C:
+                    val = np.random.normal(0, sig)
+                    A[i][j] = jscale * val
+                    A[i+1][j] = jscale * val
+                    A[i+1][j+1] = val
+                    A[i][j+1] = val
+    return A
+
 
 def M_matrix(n, muc, mua, f, g):
     # n = number of species 
@@ -99,8 +144,7 @@ def M_matrix(n, muc, mua, f, g):
         
     return M
 
-
-def M_matrix3(n, muc, mua, f, g):
+def M_matrix3(n, mu1, mu2, mu3, f12, f13, f23, g21, g31, g32):
     # n = number of species 
     # C = connectedness (prob of nonzero a_ij)
     #sig2 = sigma^2 of normal distribution of nonzero a_ij's
@@ -108,14 +152,15 @@ def M_matrix3(n, muc, mua, f, g):
     M = np.zeros((n, n))
     for i in range (0, n-1):
         if i % 3 == 0:
-            M[i][i] = muc
-            M[i+1][i+1] = muc
-            M[i+2][i+2] = mua
-            M[i][i+1] = 0
-            M[i][i+2] = f
-            M[i+1][i] = g
-            M[i+2][i+1] = g
-        
+            M[i][i] = mu1
+            M[i+1][i+1] = mu2
+            M[i+2][i+2] = mu3
+            M[i][i+1] = f12
+            M[i][i+2] = f13
+            M[i+1][i+2] = f23
+            M[i+1][i] = g21
+            M[i+2][i] = g31
+            M[i+2][i+1] = g32
     return M
 
 #M = M_matrix3(6, -0.5, -0.6, 1, 2)
@@ -168,9 +213,18 @@ def lv_classic(x0, t, A, r):
 def LH_jacobian(A, M, xf):
     n = len(xf)
     delta = np.diag(np.dot(A, xf))
-    Ax = np.multiply(np.outer(np.ones(n), xf), A)
+    Ax = np.multiply(np.outer(xf, np.ones(n)), A)
     J = M + delta + Ax
     return J
+
+'''A = A_matrix(4, 1, 0.1, 1, 1)
+M = M_matrix(4, -0.5, -0.5, 1.5, 1)
+xf = [1, 2, 3, 4]
+
+Jac = LH_jacobian(A, M, xf)
+print('A', A)
+print('M:', M)
+print(Jac)'''
 
 
 

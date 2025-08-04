@@ -9,7 +9,8 @@ from scipy import integrate
 from scipy.optimize import curve_fit
 from scipy.stats import linregress
 from lv_functions import A_matrix
-from lv_functions import M_matrix
+from lv_functions import A_matrix3
+from lv_functions import M_matrix3
 from lv_functions import lv_LH
 from lv_functions import x0_vec
 from lv_functions import LH_jacobian
@@ -21,8 +22,8 @@ import math
 #region variables that change  
 
 # stuff that gets changed: 
-n = 20
-runs = 2000
+n = 21
+runs = 500
 
 zest = 1e-4      # anything smaller = 0
 
@@ -31,34 +32,37 @@ random.seed(1)
 K_set = 0.6
 C = 1
 
-# M matrix
-# for z=1, have g-f = muc-mua 
-muc = -1
-mua = -0.5
-f = 1.5
-g = 1.2
+# M matrix 
+mu1 = -0.5; mu2 = -0.6; mu3 = -0.7
+f12 = 1.4; f13 = 1.5; f23 = 1.6
+g21 = 0.9; g31 = 1; g32 = 1.1
+
+z1 = 1.3098610680199345
+z2 = 1.1319313094443162
+
 
 # endregion
 
 #region variables that dont change
 
 # stuff that does not get changed:
-s = int(n/2)
-sigma2 = K_set**2/n*2
+s = int(n/3)
+sigma2 = K_set**2/s/C
 t = np.linspace(0, 500, 1000)
 x0 = x0_vec(n, 1)
 
-M = M_matrix(n, muc, mua, f, g)
+M = M_matrix3(n, mu1, mu2, mu3, f12, f13, f23, g21, g31, g32)
 print('n:', n, 'K:', K_set, ', sigma:', '%.3f'%(sigma2**0.5))
 mpre_vals, trash = np.linalg.eig(M)
-print('M vals:', mpre_vals[0], mpre_vals[1])
+print('M vals:', mpre_vals[0], mpre_vals[1], mpre_vals[2])
 One = np.ones(n)
 
-z = (muc-mua+((muc-mua)**2+4*g*f)**0.5) / (2*g)
-R_c = (z*muc+f)/z; R_a = z*g+mua
-Rvec = R_a/(1+z) * np.ones(s) 
-print('z =','%.3f'%z, 'R child =', '%.3f'%(R_c/(1+z)), ', R adult =', '%.3f'%(R_a/(1+z)))
+R = g31*z1+g32*z2+mu3
+Rvec = R/(1+z1+z2) * np.ones(s)
 
+zvec = []
+for i in range(s):
+    zvec.extend([z1, z2, 1])
 # endregion variables
 
 #region make arrays 
@@ -111,7 +115,7 @@ for run in range(runs):
     eigs_A_cl.extend(Avals_cl)
     maxeig_A_cl.append(np.max(np.real(Avals_cl)))
 
-    A = A_matrix(n, C, sigma2, seed, LH=1)      #random a matrix 
+    A = A_matrix3(n, C, sigma2, seed)      #random a matrix 
     A_row = np.dot(A, One)
     A_rowsums.extend(A_row)
     Avals, trash = np.linalg.eig(A)
@@ -122,8 +126,8 @@ for run in range(runs):
     # region analytical final abundances 
     A_inv = np.linalg.inv(A_classic)
     xf_an_adult = -np.dot(A_inv, Rvec)
-    xf_an = np.repeat(xf_an_adult, 2)   # make unscaled
-    xf_an[::2] *= z     # scale child 
+    xf_an = np.repeat(xf_an_adult, 3)   # make unscaled
+    xf_an = np.multiply(xf_an, zvec)
     final_abundances_an.extend(xf_an)
 
     A_clxs = np.multiply(np.outer(xf_an_adult, np.ones(s)), A_classic)
@@ -210,16 +214,19 @@ def gaussian(x, A, mu, sigma2):
     return gaussian
 
 p0_abun = [0.9*np.max(abun_an_counts), abun_an_mean, abun_an_std**2]
-pars_abun_an, covs_abun_an = curve_fit(gaussian, abun_an_bc, abun_an_counts, p0_abun)
+#pars_abun_an, covs_abun_an = curve_fit(gaussian, abun_an_bc, abun_an_counts, p0_abun)
 
 #print('pars guess: \n', p0_abun)
-print('pars fit: \n', pars_abun_an)
+#print('pars fit: \n', pars_abun_an)
 # endregion analysis
 
 # region plot setup 
 fsize = (6,6)
 
-mpar_text = str('$\u03bc_c =$'+str(muc)+', $\u03bc_a =$'+str(mua)+', $f=$'+str(f)+', $g =$'+str(g)+' (z='+str('%.2f'%z)+')')
+mpar_text = str('$\u03bc_1 =$'+str(mu1)+', $\u03bc_1 =$'+str(mu2)+', $\u03bc_1 =$'+str(mu3)+
+                ', \n$f12=$'+str(f12)+', $f13=$'+str(f13)+', $f23=$'+str(f23)+
+                ', \n$g21 =$'+str(g21)+', $g31 =$'+str(g21)+', $g32 =$'+str(g32)+
+                ' (z1='+str('%.2f'%z1)+', z2='+str('%.2f'%z2)+')')
 apar_text = str('n='+ str(n)+', K='+str(K_set)+', '+str(runs)+' runs'+', '+str('%.1f'%(frac_blk_stable*100)) +'% stable')
 
 stability_text = str(str('%.3f'%(frac_blk_stable*100))+' % stable') #, predicted '+str('%.3f'%predict_stable_frac)+'%')
@@ -238,7 +245,7 @@ plt.xlabel('real')
 plt.ylabel('imaginary')
 plt.title('Eigenvalues of J, K='+str(K_set))
 plt.figtext(0.13, 0.12, mpar_text)
-plt.figtext(0.13, 0.15, apar_text)
+plt.figtext(0.13, 0.21, apar_text)
 plt.legend()
 
 # histograms of real eigenvalues, for analytical solutions 
@@ -257,16 +264,16 @@ plt.legend()
 plt.figure(figsize=fsize)
 plt.stairs(abun_an_counts, abun_an_be, fill=True, alpha = 0.7, label = 'analytical solutions')
 plt.stairs(abun_num_counts, abun_num_be, fill=True, alpha = 0.7, label = 'numerical solutions')
-plt.plot(abun_an_bc, gaussian(abun_an_bc, *pars_abun_an), '-', label = 'fit of analytical')
+#plt.plot(abun_an_bc, gaussian(abun_an_bc, *pars_abun_an), '-', label = 'fit of analytical')
 plt.grid()
 plt.xlabel('final abundance of species')
 plt.ylabel('counts')
 plt.title('final abundances from unconstrained cases, K='+str(K_set))
 plt.figtext(0.13, 0.12, mpar_text)
-plt.figtext(0.13, 0.15, apar_text)
+plt.figtext(0.13, 0.21, apar_text)
 plt.figtext(0.13, 0.85, stability_text)
 #plt.figtext(0.13, 0.79, "M eigenvalues: "+str(mpre_vals[0:2]))
-plt.figtext(0.13, 0.79, 'Fit mean:'+str('%0.3f'%(pars_abun_an[1]))+', fit std.dev: '+str('%0.3f'%(pars_abun_an[2]**0.5)))
+#plt.figtext(0.13, 0.79, 'Fit mean:'+str('%0.3f'%(pars_abun_an[1]))+', fit std.dev: '+str('%0.3f'%(pars_abun_an[2]**0.5)))
 plt.legend(loc='upper right')
 #plt.xlim(-1, 1.5)
 
@@ -277,7 +284,7 @@ plt.xlabel('(true) A rowsum')
 plt.ylabel('species abundance')
 plt.grid()
 plt.figtext(0.13, 0.12, mpar_text)
-plt.figtext(0.13, 0.15, apar_text)
+plt.figtext(0.13, 0.21, apar_text)
 
 # species stable vs max eig of J
 plt.figure(figsize=fsize)
@@ -310,8 +317,6 @@ plt.xlabel('unscaled A')
 plt.ylabel('scaled A')
 plt.title('Max eigenvalue of A - unscaled vs scaled ')
 plt.grid()
-
-
 
 
 

@@ -9,6 +9,7 @@ from scipy import integrate
 from scipy.optimize import curve_fit
 from scipy.stats import linregress
 from lv_functions import A_matrix
+from lv_functions import A_matrix_juvscale
 from lv_functions import M_matrix
 from lv_functions import lv_LH
 from lv_functions import x0_vec
@@ -38,6 +39,8 @@ mua = -0.5
 f = 1.5
 g = 1.2
 
+jscale = 1
+
 # endregion
 
 #region variables that dont change
@@ -49,15 +52,17 @@ t = np.linspace(0, 500, 1000)
 x0 = x0_vec(n, 1)
 
 M = M_matrix(n, muc, mua, f, g)
-print('n:', n, 'K:', K_set, ', sigma:', '%.3f'%(sigma2**0.5))
+print('n:', n, 'K:', K_set, ', sigma:', '%.3f'%(sigma2**0.5), ', j: ', jscale)
 mpre_vals, trash = np.linalg.eig(M)
 print('M vals:', mpre_vals[0], mpre_vals[1])
 One = np.ones(n)
 
 z = (muc-mua+((muc-mua)**2+4*g*f)**0.5) / (2*g)
 R_c = (z*muc+f)/z; R_a = z*g+mua
-Rvec = R_a/(1+z) * np.ones(s) 
+Rvec = R_a * np.ones(s) 
 print('z =','%.3f'%z, 'R child =', '%.3f'%(R_c/(1+z)), ', R adult =', '%.3f'%(R_a/(1+z)))
+
+D = (jscale*z+1)*np.ones((s,s)) + (z-jscale*z)*np.identity(s)
 
 # endregion variables
 
@@ -111,7 +116,7 @@ for run in range(runs):
     eigs_A_cl.extend(Avals_cl)
     maxeig_A_cl.append(np.max(np.real(Avals_cl)))
 
-    A = A_matrix(n, C, sigma2, seed, LH=1)      #random a matrix 
+    A = A_matrix_juvscale(n, C, sigma2, seed, jscale)      #random a matrix 
     A_row = np.dot(A, One)
     A_rowsums.extend(A_row)
     Avals, trash = np.linalg.eig(A)
@@ -120,7 +125,8 @@ for run in range(runs):
     # endregion
 
     # region analytical final abundances 
-    A_inv = np.linalg.inv(A_classic)
+    Aprime = np.multiply(D, A_classic)
+    A_inv = np.linalg.inv(Aprime)
     xf_an_adult = -np.dot(A_inv, Rvec)
     xf_an = np.repeat(xf_an_adult, 2)   # make unscaled
     xf_an[::2] *= z     # scale child 
@@ -175,7 +181,7 @@ for run in range(runs):
 # region analysis 
 avg_n_survives = np.average(n_survives)
 frac_blk_stable = np.mean(stable_true)
-print('K:', K_set, 'n:', n, 'average survived:', '%.3f'%avg_n_survives, 'stability', '%.1f'%(frac_blk_stable*100), '% of runs')
+print('K:', K_set, 'n:', n, ', j: ', jscale, 'average survived:', '%.3f'%avg_n_survives, 'stability', '%.1f'%(frac_blk_stable*100), '% of runs')
 print('min abundance: ', np.min(final_abundances_an), ', max abundabce: ', np.max(final_abundances_an))
 
 # make histograms
@@ -222,7 +228,7 @@ fsize = (6,6)
 mpar_text = str('$\u03bc_c =$'+str(muc)+', $\u03bc_a =$'+str(mua)+', $f=$'+str(f)+', $g =$'+str(g)+' (z='+str('%.2f'%z)+')')
 apar_text = str('n='+ str(n)+', K='+str(K_set)+', '+str(runs)+' runs'+', '+str('%.1f'%(frac_blk_stable*100)) +'% stable')
 
-stability_text = str(str('%.3f'%(frac_blk_stable*100))+' % stable') #, predicted '+str('%.3f'%predict_stable_frac)+'%')
+stability_text = str('j ='+str(jscale)+', '+str('%.3f'%(frac_blk_stable*100))+' % stable') #, predicted '+str('%.3f'%predict_stable_frac)+'%')
 
 # endregion plot setup 
 
@@ -236,9 +242,10 @@ plt.plot(np.real(eigs_Mp), np.imag(eigs_Mp), '.', ms = 4, color = 'C1', label = 
 plt.grid()
 plt.xlabel('real')
 plt.ylabel('imaginary')
-plt.title('Eigenvalues of J, K='+str(K_set))
+plt.title('Eigenvalues of J, K='+str(K_set)+', j= '+str(jscale))
 plt.figtext(0.13, 0.12, mpar_text)
 plt.figtext(0.13, 0.15, apar_text)
+plt.xlim((-6.5, 2.5))
 plt.legend()
 
 # histograms of real eigenvalues, for analytical solutions 
@@ -248,7 +255,7 @@ plt.stairs(Mpan_counts, Mpan_be, fill=True, alpha = 0.5, label = "M'")
 #plt.stairs(Aan_counts, Aan_be, fill=True, alpha = 0.5, label = 'A (scaled)')
 plt.xlabel('real eigenvalue component')
 plt.ylabel('counts')
-plt.title('Real components of Analytical Jacobian Eigenvalues')
+plt.title('Real components of Analytical Jacobian Eigenvalues, j='+str(jscale))
 plt.grid()
 plt.legend()
 
@@ -261,7 +268,7 @@ plt.plot(abun_an_bc, gaussian(abun_an_bc, *pars_abun_an), '-', label = 'fit of a
 plt.grid()
 plt.xlabel('final abundance of species')
 plt.ylabel('counts')
-plt.title('final abundances from unconstrained cases, K='+str(K_set))
+plt.title('final abundances from unconstrained cases, K='+str(K_set)+', j='+str(jscale))
 plt.figtext(0.13, 0.12, mpar_text)
 plt.figtext(0.13, 0.15, apar_text)
 plt.figtext(0.13, 0.85, stability_text)
