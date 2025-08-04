@@ -60,16 +60,21 @@ if abs(R_c-R_a) > 1e-10:
     raise Exception("error calculating R values.")
 # endregion set variables 
 
-# region classical analog 
+# region classical case
 A_classic = A_matrix(int(n/2), C, sigma2, seed, LH=0)
 Avals_cl, Avecs_cl = np.linalg.eig(A_classic)
-#print('max classic eig:', np.max(np.real(Avals_cl)))
+print('max classic eig:', np.max(np.real(Avals_cl)))
 # endregion
 
 
+
+#region loop
 js = np.linspace(0, 1, 11)
 
+
+
 for j in js: 
+    print('j = ', j)
     # region set A matrix 
     A = A_matrix_juvscale(n, C, sigma2, seed, j)
     Avals, Avecs = np.linalg.eig(A)
@@ -97,51 +102,17 @@ for j in js:
     A_scaled = np.multiply(np.outer(xf_an, np.ones(n)), A)
     Avals_sc, Avecs_sc = np.linalg.eig(A_scaled)
     Avals_sc_ma = np.ma.masked_inside(Avals_sc, -zest, zest)
-
-    A_scaled_cl = np.multiply(np.outer(xf_an_adult, np.ones(s)), A_classic)
-    Avals_sc_cl, Avecs_sc_cl = np.linalg.eig(A_scaled_cl)
-    print('max eig A_scale_cl:', np.max(np.real(Avals_sc_cl)))
     print('max eig A_scale:', np.max(np.real(Avals_sc_ma)))
 
-
-    #endregion
-
-    # region run function: 
-    result = lv_LH(x0, t, A, M)
-    xf_num = result[-1,:]
-
-    #print('final abnundances: \n', xf_num)
-    #print('analytical final abundances: \n', xf_an)
-
-
-
     A_rows_scaled = np.dot(A, xf_an)
-    #print('A dot xf:', A_rows_scaled)
-    A_rows_scaled_cl = np.dot(A_classic, xf_an_adult)
+
     Mp = M +np.diag(A_rows_scaled) 
 
     Mpvals, Mpvecs = np.linalg.eig(Mp)
-    #print('Mp eigs: ', Mpvals)
+    #endregion
+#endregion loop
 
-    #%% Stats: 
-    species_left = 0
-    species_stable = 0
-    for i in range(n):
-        if result[-1, i] > 1e-3:
-            species_left+=1
-            if abs((result[-1, i]-result[-2, i]) / result[-1, i]) < 0.001:
-                species_stable +=1
-
-    print("species remaining:", species_left)
-
-
-
-    # region Calculate the Jacobian
-    Jac_num = LH_jacobian(A, M, xf_num)
-    #print("Jacobian: ", Jac)
-    Jnumvals, Jnumvecs = np.linalg.eig(Jac_num)
-
-    #region plot setup 
+#region plot setup 
 
 colors = ['C0', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9']
 
