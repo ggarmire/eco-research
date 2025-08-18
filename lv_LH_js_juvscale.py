@@ -14,7 +14,7 @@ import random
 import math
 
 seed = random.randint(0, 1000)
-seed = 875
+#seed = 944
 print('\n')
 print("seed: ", seed)
 
@@ -28,7 +28,7 @@ s = int(n / 2)
 x0 = x0_vec(n, 1)
 
 t = np.linspace(0, 200, 2000)
-K_set = 0.3
+K_set = 0.7
 C = 1
 
 muc = -1
@@ -71,7 +71,28 @@ print('max classic eig:', np.max(np.real(Avals_cl)))
 #region loop
 js = np.linspace(0, 1, 11)
 
+xfs_byj = {}
+Ars_byj = {}
+Jvals_byj = {}
+Jvals_byj_imag = {}
+Avals_sc_byj = {}
+maxeig_J_byj = []
+maxeig_A_byj = []
+xf_std = []
+xf_mean = []
 
+flag02 = 0 
+flag05 = 0
+flag08 = 0
+
+#region plot setup 
+
+mpar_text = str('$\u03bc_c =$'+str(muc)+', $\u03bc_a =$'+str(mua)+', $f=$'+str(f)+', $g =$'+str(g)+' (z='+str('%.2f'%z)+')')
+apar_text = str('n='+ str(n)+', A seed ='+ str(seed)+', K='+str(K_set))
+
+colors = ['C0', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9']
+
+#endregion
 
 for j in js: 
     print('j = ', j)
@@ -94,15 +115,19 @@ for j in js:
 
     Jac = LH_jacobian(A, M, xf_an)
     Jvals, Jvecs = np.linalg.eig(Jac)
-    print('max eigenvalue of J:', np.max(np.real(Jvals)))
-    print('# of Jvals:', len(Jvals))
+    Jvals_imag = []
+    for k in range(n):
+        if abs(Jvals[k].imag) > zest:
+            Jvals_imag.append(Jvals[k])
+
+    print('     max eigenvalue of J:', np.max(np.real(Jvals)))
     # endregion
 
     # region other A stuff 
     A_scaled = np.multiply(np.outer(xf_an, np.ones(n)), A)
     Avals_sc, Avecs_sc = np.linalg.eig(A_scaled)
     Avals_sc_ma = np.ma.masked_inside(Avals_sc, -zest, zest)
-    print('max eig A_scale:', np.max(np.real(Avals_sc_ma)))
+    #print('max eig A_scale:', np.max(np.real(Avals_sc_ma)))
 
     A_rows_scaled = np.dot(A, xf_an)
 
@@ -110,104 +135,98 @@ for j in js:
 
     Mpvals, Mpvecs = np.linalg.eig(Mp)
     #endregion
+
+    xfs_byj['j_{0}'.format(j)] = xf_an
+    Ars_byj['j_{0}'.format(j)] = A_rowsums
+    Jvals_byj['j_{0}'.format(j)] = Jvals
+    Jvals_byj_imag['j_{0}'.format(j)] = Jvals_imag
+    Avals_sc_byj['j_{0}'.format(j)] = Avals_sc
+
+    maxeig_J_byj.append(np.max(np.real(Jvals)))
+    maxeig_A_byj.append(np.max(np.real(Avals_sc_ma)))
+    xf_mean.append(np.mean(xf_an))
+    xf_std.append(np.std(xf_an))
+
+
+    #region plotting in loop
+    if (j == 0) or (j ==1) or (j >= 0.2 and flag02 == 0) or (j >= 0.5 and flag05 ==0) or (j >= 0.8 and flag08 ==0):
+        if j >= 0.2 and flag02 == 0: flag02 = 1
+        elif j >=0.5 and flag05 == 0: flag05 = 1
+        elif j >=0.8 and flag08 == 0: flag08 = 1
+        plt.figure()
+        plt.grid()
+        plt.plot(np.real(Jvals), np.imag(Jvals), '.')
+        plt.xlabel('real component'); plt.ylabel('imaginary component')
+        plt.title('Eigenvalues of J, j='+str(j))
+        #plt.xlim((-3, 1)); 
+        #plt.ylim((-0.015, 0.015))
+        plt.figtext(0.2, 0.15, apar_text)
+        plt.figtext(0.2, 0.12, mpar_text)      
+    # endregion
+
 #endregion loop
 
-#region plot setup 
 
-colors = ['C0', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9']
-
-mpar_text = str('$\u03bc_c =$'+str(muc)+', $\u03bc_a =$'+str(mua)+', $f=$'+str(f)+', $g =$'+str(g)+' (z='+str('%.2f'%z)+')')
-apar_text = str('n='+ str(n)+', A seed ='+ str(seed)+', K='+str(K_set))
-
-
-
-plot_text2 = str('Max real eig of J: '+ str('%.3f'%(np.max(np.real(Jvals))))) 
-               # + '\n Max real eig J (analytical): '+ str('%.3f'%(np.max(np.real(Janvals)))))
-
-box_par = dict(boxstyle='square', facecolor='white', alpha = 0.8)
-
-
-# region figures 
-
-# evolution of populations
+# J eigenvalues, all
 plt.figure()
 plt.grid()
-if species_left == n: title = str('species population over time, j = '+str(j)+' (stable)')
-elif species_left < n: title = str('species population over time, j = '+str(j)+' (unstable)')
-plt.title(title)
-for i in range(n):
-    if i%2 == 0:
-        plt.plot(0, result[0, i], 'o', mfc = 'none', color=colors[math.floor(i/2)], ms = 3)
-        plt.plot(t, result[:, i], 'o', mfc = 'none', color=colors[math.floor(i/2)], ms = 3, markevery = (i, 20))       # child (empty)
-    else:
-        plt.plot(0, result[0, i], 'o', color=colors[math.floor(i/2)], ms = 3)
-        plt.plot(t, result[:, i], 'o', color=colors[math.floor(i/2)], ms = 3, markevery = (i, 20))     # adult (full)
-plt.xlabel('Time t')
-plt.ylabel('Population density')
-plt.figtext(0.2, 0.80, apar_text)
-plt.figtext(0.2, 0.83, mpar_text)
-plt.figtext(0.4, 0.6, plot_text2, bbox=box_par)
+for j in js: 
+    Jvals = Jvals_byj['j_{0}'.format(j)]
+    Jvals_imag = Jvals_byj_imag['j_{0}'.format(j)]
+    plt.plot(np.real(Jvals), j*np.ones(n), '.', color='C0')
+    plt.plot(np.real(Jvals_imag), j*np.ones(len(Jvals_imag)), '.', color='C1')
+plt.ylabel('j, scale of inter-species juvenile effects')
+plt.xlabel('real components of Jacobian eigenvalues')
+plt.title('Distribution of J eigenvalues with changing j')
+plt.figtext(0.2, 0.15, apar_text)
+plt.figtext(0.2, 0.12, mpar_text)
+legend_elements = [Line2D([0], [0], marker = 'o', color='C0', label='on real line'),
+                   Line2D([0], [0], marker = 'o', color='C1', label='off real line')]
+plt.legend(handles=legend_elements, loc = 'upper left')
+plt.ylim((-0.15, 1.1))
+
+plt.figure()
+plt.grid()
+for j in js: 
+    xfs = xfs_byj['j_{0}'.format(j)]
+    for i in range(s):
+        plt.plot(xfs[2*i], j, 'o', mfc = 'none', ms = 3, color = colors[i])
+        plt.plot(xfs[2*i+1], j, 'o', ms = 3, color = colors[i])
+plt.ylabel('j, scale of inter-species juvenile effects')
+plt.xlabel('final abundances (analytically found)')
+plt.title('Distribution of final abundances with changing j')
+plt.figtext(0.2, 0.15, apar_text)
+plt.figtext(0.2, 0.12, mpar_text)
 legend_elements = [Line2D([0], [0], marker = 'o', color='C0', mfc = 'none', label='child'),
                    Line2D([0], [0], marker = 'o', color='C0', label='adult')]
-plt.legend(handles=legend_elements)
-plt.ylim((0, 1.2))
+plt.legend(handles=legend_elements, loc='lower right')
+plt.ylim((-0.15, 1.1))
 
-# eigenvalues, analytical
 plt.figure()
 plt.grid()
-plt.plot(np.real(Jvals), np.imag(Jvals), '.', label = 'Analytical J')
-plt.plot(np.real(Jnumvals), np.imag(Jnumvals), 'o', mfc = 'none', label = 'Numerical J')
-plt.plot(np.real(Mpvals), np.imag(Mpvals), '.', label= "M' eigs")
-plt.title('eigenvalues of Jacobian')
-plt.xlabel('real component')
-plt.ylabel('imaginary component')
+for j in js: 
+    Ars = Ars_byj['j_{0}'.format(j)]
+    for i in range(s):
+        plt.plot(Ars[2*i], j, 'o', mfc = 'none', ms = 3, color = colors[i])
+        plt.plot(Ars[2*i+1], j, 'o', ms = 3, color = colors[i])
+plt.ylabel('j, scale of inter-species juvenile effects')
+plt.xlabel('Row sums of A')
+plt.title('Distribution of scaled row sums of A with changing j')
+plt.figtext(0.2, 0.15, apar_text)
+plt.figtext(0.2, 0.12, mpar_text)
+legend_elements = [Line2D([0], [0], marker = 'o', color='C0', mfc = 'none', label='child'),
+                   Line2D([0], [0], marker = 'o', color='C0', label='adult')]
+plt.legend(handles=legend_elements, loc='lower right')
+plt.ylim((-0.15, 1.1))
+
+plt.figure()
+plt.plot(xf_std, js, '.', label = 'standard deviation')
+plt.plot(xf_mean, js, '.', label = 'mean')
+plt.grid()
 plt.legend()
-
-
-# final pops- analytical vs numerucal
-plt.figure()
-plt.grid()
-plt.plot(np.linspace(0, 1.1*np.max(xf_an),10),np.linspace(0, 1.1*np.max(xf_an),10),'--', label = 'y=x')
-plt.plot(xf_an, xf_num, 'o', label = 'populations')
-plt.xlabel('final populations, analytically found')
-plt.ylabel('final populations, numerically found')
-if species_left == n: plt.title('comparing final populations, stable case')
-elif species_left < n: plt.title('comparing final populations, unstable case')
-plt.legend(loc = 'lower right')
-plt.figtext(0.2, 0.80, apar_text)
-plt.figtext(0.2, 0.83, mpar_text)
-
-# final pops- j=j vs j=1
-plt.figure()
-plt.grid()
-plt.plot(np.linspace(0, 1.1*np.max(xf_an_og),10),np.linspace(0, 1.1*np.max(xf_an_og),10),'--', label = 'y=x')
-plt.plot(xf_an_og, xf_an, 'o', label = 'populations')
-plt.xlabel('final populations, j=1')
-plt.ylabel('final populations, j='+str(j))
-plt.title('comparing final populations with j to original case')
-plt.legend(loc = 'lower right')
-plt.figtext(0.2, 0.80, apar_text)
-plt.figtext(0.2, 0.83, mpar_text)
-
-plt.figure()
-plt.grid()
-plt.plot(np.real(Jvals_og), np.imag(Jvals_og), 'o', mfc = 'none', color = 'C1', label = 'J, j=1')
-plt.plot(np.real(Jvals), np.imag(Jvals), '.', color = 'C0', label = str('J, j='+str(j)))
-plt.legend()
-plt.title('comparing eigenvalues with j to original case')
-plt.xlabel('real component')
-plt.ylabel('imaginary component')
-
-'''plt.figure()
-plt.grid()
-plt.plot(xf_an, np.divide(xf_an-xf, xf_an), '.')
-plt.xlabel('analytical solution')
-plt.ylabel('fractional difference between analytical and numerical')'''
-
-
-
-
+plt.title('Mean/Standard deviation of population densities for changing j')
+plt.ylabel('j')
+plt.xlabel('value')
 plt.show()
-
 
 print('\n')

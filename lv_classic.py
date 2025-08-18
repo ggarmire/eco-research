@@ -6,6 +6,7 @@ from scipy import integrate
 from lv_functions import A_matrix
 from lv_functions import x0_vec
 from lv_functions import lv_classic
+from lv_functions import classic_jacobian
 import random 
 
 
@@ -19,43 +20,41 @@ xstar = 1
 n = 10     # number of species 
 #x0 = x0_vec(n, 1)
 x0 = x0_vec(n, 1)
-K_set = 1.4
+K_set = 0.7
 
 
 C = 1    # connectedness|
 sigma2 = K_set**2/n       ## variance in off diagonals of interaction matrix
 
-t_end = 50     # length of time 
+t_end = 500     # length of time 
 Nt = 2000
 
 K = (C*sigma2*n)**0.5
 
-#print("complexity: ", K)
-
-
+print("complexity: ", K, ', sigma2: ', sigma2)
 
 A = A_matrix(n, C, sigma2, seed, LH=0) 
-print('sigma2:', sigma2)# 
-#print('A: \n', A)
 
 Avals, Avecs = np.linalg.eig(A)
 print('max eig A:', np.max(np.real(Avals)))
 
-if xstar == 1:
-    r = -np.dot(A, np.ones(n))
-elif xstar == 0:
-    r = np.ones(n)
-#print('max rowsum:', np.max(-r))
-#print(r)
+r = 0.4*np.ones(n)
 
 xf_an = -np.dot(np.linalg.inv(A), r)
+print('xf:', xf_an)
 #print('xf_an: ', xf_an)
+xf_inv = np.linalg.inv(np.diag(xf_an))
+#print('inv xf: ', xf_inv)
 
-Jac = np.multiply(np.outer(xf_an, np.ones(n)), A)
-#print('Jac: \n', Jac)
+M = np.dot(np.diag(xf_an), A)
+Jac = classic_jacobian(A, xf_an)
 
-evals, evecs = np.linalg.eig(Jac)
-print('max eigenvalue:', np.max(np.real(evals)))
+print('max diff in Jac - M: \n', np.max(Jac - M))
+
+Jvals, Jvecs = np.linalg.eig(Jac)
+print('max eigenvalue:', np.max(np.real(Jvals)))
+
+xfinv_J = np.dot(xf_inv, Jvals)
 
 t = np.linspace(0, t_end, Nt)
 result = lv_classic(x0, t, A, r)
@@ -90,7 +89,9 @@ plt.grid()
 plt.title("eigenvalues of Jac")
 plt.xlabel('real component]')
 plt.ylabel('imaginary component')
-plt.plot(np.real(evals), np.imag(evals), 'o')
+plt.plot(np.real(Jvals), np.imag(Jvals), 'o', label = 'Jac=XA')
+plt.plot(np.real(Avals), np.imag(Avals), 'o', mfc = None, label = 'A')
+plt.legend()
 
 plt.figure()
 plt.grid()
@@ -100,6 +101,14 @@ plt.xlabel('final populations, analytically found')
 plt.ylabel('final populations, numerically found')
 if num == n: plt.title('comparing final populations, stable case')
 elif num < n: plt.title('comparing final populations, unstable case')
+
+
+plt.figure()
+plt.plot(np.real(Avals), np.imag(Avals), '.', label = 'A')
+plt.plot(np.real(xfinv_J), np.imag(xfinv_J), 'o', mfc = 'None', label = 'xf-1*J')
+plt.grid()
+plt.legend()
+
 
 
 

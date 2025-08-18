@@ -12,72 +12,55 @@ import random
 import math
 from scipy import stats 
 #region variables to change
-K_set = 0.8
-n = 30
+K_set = 0.7071
+n = 20
 C = 1
 sigma2 = K_set**2/n*2
-#sigma2 = 0.04
-#K_set = (sigma2*n/2)**0.5
-print('n: ', n, ', K: ', K_set, ', sigma^2: ', sigma2)
 
 s = int(n/2)
+seed = 1
+
+K_lh = (sigma2*n*C)**0.5
+K_classic = (sigma2*s*C)**0.5
+
+print('LH K:', K_lh, ', K_classic:', K_classic)
+
 # endregion variables 
 
-#region makw arrays 
-A_classic_rs = []
-A_classic_inv_rs = []
-#endregion
 
-runs = 1000
-One = np.ones(n)
-One_cl = np.ones(s)
-zest = 1e-5
+A_classic = A_matrix(s, C, sigma2, seed, 0)
+A_lh = A_matrix(s, C, sigma2, seed, 1)
 
-maxeig_A_cl = []
-maxeig_A_LH = []
-#region loop
-for run in range(runs): 
-    A_classic = A_matrix(s, C, sigma2, run, LH=0)
-    A_cl_inv = np.linalg.inv(A_classic)
-    Aclvals, trash = np.linalg.eig(A_classic)
-    maxeig_A_cl.append(np.max(np.real(Aclvals)))
-    
-    A_classic_rs.extend(np.dot(A_classic, One_cl))
-    A_classic_inv_rs.extend(np.dot(A_cl_inv, One_cl))
+A_inv = np.linalg.inv(A_classic)
 
-    A_LH = A_matrix(n, C, sigma2, run, LH=1)
-    ALHvals, trash =np.linalg.eig(A_LH)
-    maxeig_A_LH.append(np.max(np.real(np.ma.masked_inside(ALHvals, -zest, zest))))
+Avals_cl, bad = np.linalg.eig(A_classic)
+Avals_lh, bad = np.linalg.eig(A_lh)
+Avals_cl_inv, bad = np.linalg.eig(A_inv)
 
-#endregion loop
+Aval_mag_cl = np.sqrt(np.square(np.real(Avals_cl)) + np.square(np.imag(Avals_cl)))
 
-# region fit
+Aval_mag_inv = np.sqrt(np.square(np.real(Avals_cl_inv)) + np.square(np.imag(Avals_cl_inv)))
 
-#endregion
+print('classic: ', Avals_cl)
+print('inverse: ', Avals_cl_inv)
+
 
 
 # region plotting 
 
-fsize = (6, 6)
-plt.figure(figsize=fsize)
-plt.plot(A_classic_rs, A_classic_inv_rs, '.', alpha = 0.5)
-plt.xlabel('rowsum')
-plt.ylabel('inverse of rowsum')
-plt.grid()
+xval = np.linspace(np.min(Avals_cl), np.max(Avals_cl), 100)
+val = 1/xval
 
-plt.figure(figsize=fsize)
-plt.plot(maxeig_A_cl, maxeig_A_LH, '.')
-plt.xlabel('classic')
-plt.ylabel('LH')
+
+fsize = (6,6)
+
+
+plt.figure(figsize = fsize)
+plt.plot(sorted(-abs(Avals_cl)), sorted(-abs(Avals_cl_inv), reverse=True), '.')
+plt.plot(sorted(Avals_cl), sorted(Avals_cl_inv, reverse=True), '.')
+plt.plot(sorted(Aval_mag_cl*-1), sorted(Aval_mag_inv*-1, reverse=True), 'o', mfc='None')
+plt.plot(xval, val, '--')
 plt.grid()
-plt.title('max eig of A')
 
 plt.show()
-
-
-
-
-
-
-
 

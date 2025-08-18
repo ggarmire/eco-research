@@ -13,7 +13,7 @@ import random
 import math
 
 seed = random.randint(0, 1000)
-seed = 563 # 432 stable 644 unstable 
+seed = 464 # 432 stable 644 unstable 
 print('\n\n')
 print("seed: ", seed)
 
@@ -22,18 +22,18 @@ random.seed(1)
 #region initial conditions 
 
 # values to set 
-n = 6     # number of species 
+n = 20     # number of species 
 s = int(n / 2)
 x0 = x0_vec(n, 1)
 
-t = np.linspace(0, 200, 2000)
-K_set = 0.6
+t = np.linspace(0, 10, 1000)
+K_set = 0.5
 C = 1
 
 muc = -1
-mua = -0.5
+mua = -0.1
 f = 1.5
-g = 1.2
+g = 0.6
 z = (muc-mua+((muc-mua)**2 +4*g*f)**0.5)/(2*g)
 R_c = (z*muc+f)/z; R_a = z*g+mua
 print('z =','%.3f'%z, 'R child =', '%.3f'%R_c, ', R adult =', '%.3f'%R_a)
@@ -66,75 +66,45 @@ print('max A rowsum:', '%.3f'%np.max(A_rowsums),'; real max A eig:', '%.3f'%np.m
 # for m matrix:
 M = M_matrix(n, muc, mua, f, g)
 mvals, mvecs = np.linalg.eig(M)
-if xstar == 1:
-    xs = np.ones(n)
-    for i in range(0, n, 2):
-        xs[i] = z
-    
-    #print(xs)
-    A_rows = np.dot(A, xs)
-    M_rows = np.dot(M, xs)
-    scales = -np.divide(np.multiply(A_rows, xs), M_rows)
-    M = np.multiply(M, np.outer(scales, np.ones(n)))
-    if np.max(np.diag(M)) > 0: print('M has a positive diagonal.')
-    if np.min(np.diag(M, 1)) < 0: print('M has a negative f value.')
-    if np.min(np.diag(M, -1)) < 0: print('M has a negative g value.')
 
-
-    # alternative 1: scale off diagonals of M
-    '''for row in range(0, n, 2):
-        M[row][row+1] = -z*muc - A_rows[row]
-        M[row+1][row] = 1/z * (-mua - A_rows[row])'''
-
-
-    Mprime = M + np.diag(A_rows)
-    mpvals, mpvecs = np.linalg.eig(Mprime)
-print('primary M eigs:', '%.3f'%mvals[0], '%.3f'%mvals[1], '%.3f'%mvals[2], '%.3f'%mvals[3])
+#print('primary M eigs:', '%.3f'%mvals[0], '%.3f'%mvals[1], '%.3f'%mvals[2], '%.3f'%mvals[3])
 # endregion matrices 
 
 # region analytical final abundances
 A_inv = np.linalg.inv(A_classic)
-print(A_inv)
+#print(A_inv)
 Rvec = R_a/(1+z) * np.ones(s)   # for in
 xf_an_adult = -np.dot(A_inv, Rvec)  # solve classical system
 xf_an = np.repeat(xf_an_adult, 2)   # make unscaled
 xf_an[::2] *= z     # scale child 
 
 Jac_an = LH_jacobian(A, M, xf_an)
-Janvals, Janvecs = np.linalg.eig(Jac_an)
-print('max eigenvalue of J_an:', np.max(np.real(Janvals)))
+Jvals, Jvecs = np.linalg.eig(Jac_an)
+print('max eigenvalue of J_an:', np.max(np.real(Jvals)))
 
 # endregion
 
-# region run function: 
-result = lv_LH(x0, t, A, M)
-xf = result[-1,:]
-#print('xf: ', xf)
+A_scaled = np.dot(np.diag(xf_an), A)
+Asvals, Asvecs = np.linalg.eig(A_scaled)
 
-A_scaled = np.multiply(np.outer(xf, np.ones(n)), A)
-A_rows_scaled = np.dot(A, xf)
+
+A_rows_scaled = np.dot(A, xf_an)
 Mp = M +np.diag(A_rows_scaled) 
 
 Mpvals, Mpvecs = np.linalg.eig(Mp)
-#print('Mp eigs: ', Mpvals)
+print('Mp eig: ', Mpvals[0], ', from M: ', mvals[0]-mvals[1])
+
+# region numerical
+result = lv_LH(x0, t, A, M)
+xf_num = result[-1,:]
+
+
+#endregion
 
 #%% Stats: 
-species_left = 0
-species_stable = 0
-for i in range(n):
-    if result[-1, i] > 1e-3:
-        species_left+=1
-        if abs((result[-1, i]-result[-2, i]) / result[-1, i]) < 0.001:
-            species_stable +=1
-
+species_left = np.sum(xf_an>0)
 print("species remaining:", species_left)
 
-
-
-# region Calculate the Jacobian
-Jac = LH_jacobian(A, M, result[-1, :])
-#print("Jacobian: ", Jac)
-Jvals, Jvecs = np.linalg.eig(Jac)
 
 #region plot setup 
 
@@ -144,13 +114,8 @@ mpar_text = str('$\u03bc_c =$'+str(muc)+', $\u03bc_a =$'+str(mua)+', $f=$'+str(f
 apar_text = str('n='+ str(n)+', A seed ='+ str(seed)+', K='+str(K_set))
 
 
-if xstar == 1:
-    plot_text2 = str('Max real eigenvalue of J: '+ str('%.3f'%(np.max(np.real(Jvals)))) + 
-                    '\n Max real eigenvalue of Mprime: '+ str('%.3f'%(np.max(np.real(mpvals))))
-                    +'\n Max real eigenvalue of A: '+ str('%.3f'%(np.max(np.real(Avals)))))
-elif xstar == 0:
-    plot_text2 = str('Max real eig J (numerical): '+ str('%.3f'%(np.max(np.real(Jvals)))) + 
-                    '\n Max real eig J (analytical): '+ str('%.3f'%(np.max(np.real(Janvals)))))
+
+plot_text2 = str('Max real eig J (analytical): '+ str('%.3f'%(np.max(np.real(Jvals)))) +"\nM' eigenvalue: "+str('%.3f'%(mvals[0]-mvals[1])))
 
 box_par = dict(boxstyle='square', facecolor='white', alpha = 0.8)
 
@@ -186,38 +151,20 @@ plt.legend(handles=legend_elements)
 # eigenvalues, analytica
 plt.figure()
 plt.grid()
-plt.plot(np.real(Jvals), np.imag(Jvals), '.')
-plt.plot(np.real(Mpvals), np.imag(Mpvals), '.', label= "M' eigs")
+plt.plot(np.real(Jvals), np.imag(Jvals), '.', label= 'Jacobian eigs')
+plt.plot(np.real(Mpvals), np.imag(Mpvals), 'o', mfc = 'none', label= "M' eigs")
+plt.plot(np.real(Asvals), np.imag(Asvals), 'o', mfc = 'none', label = 'X.A eigs')
 plt.title('eigenvalues of Jacobian, numerical')
 plt.xlabel('real component')
 plt.ylabel('imaginary component')
 plt.legend()
 
-# eigenvaluesm analytical
-plt.figure()
-plt.grid()
-plt.plot(np.real(Janvals), np.imag(Janvals), '.')
-plt.title('eigenvalues of Jacobian, analytical')
-plt.xlabel('real component')
-plt.ylabel('imaginary component')
 
-# eigs, analytical and numerical 
+# final pops- analytical vs numerical
 plt.figure()
 plt.grid()
-plt.title('eigenvalues of Jacobian')
-plt.plot(np.real(Jvals), np.imag(Jvals), '.', label = 'numerical')
-plt.plot(np.real(Janvals), np.imag(Janvals), '.', label= 'analytical')
-plt.xlabel('real component')
-plt.ylabel('imaginary component')
-plt.figtext(0.2, 0.80, apar_text)
-plt.figtext(0.2, 0.83, mpar_text)
-plt.legend()
-
-# final pops- analytical vs numerucal
-plt.figure()
-plt.grid()
-plt.plot(np.linspace(0, 1.1*np.max(xf),10),np.linspace(0, 1.1*np.max(xf),10),'--', label = 'y=x')
-plt.plot(xf_an, xf, 'o', label = 'populations')
+plt.plot(np.linspace(0, 1.1*np.max(xf_num),10),np.linspace(0, 1.1*np.max(xf_num),10),'--', label = 'y=x')
+plt.plot(xf_an, xf_num, 'o', label = 'populations')
 plt.xlabel('final populations, analytically found')
 plt.ylabel('final populations, numerically found')
 if species_left == n: plt.title('comparing final populations, stable case')
@@ -226,35 +173,10 @@ plt.legend(loc = 'lower right')
 plt.figtext(0.2, 0.80, apar_text)
 plt.figtext(0.2, 0.83, mpar_text)
 
-'''plt.figure()
-plt.grid()
-plt.plot(xf_an, np.divide(xf_an-xf, xf_an), '.')
-plt.xlabel('analytical solution')
-plt.ylabel('fractional difference between analytical and numerical')'''
-
-plt.figure()
-plt.grid()
-plt.plot(xf, A_rows_scaled, '.')
-plt.xlabel('final abundances')
-plt.ylabel('A dot xf')
-plt.ylim(-0.8, -0.5)
 
 
-plt.figure()
-plt.grid()
-plt.plot(np.real(Avals_cl), np.imag(Avals_cl),'.', label = 'classic')
-plt.plot(np.real(Avals), np.imag(Avals), '.', label = 'LH')
-plt.plot(np.real(Avals)/2, np.imag(Avals)/2, 'o', mfc = 'none', label = 'LH/2')
-plt.ylabel('Imaginary component')
-plt.xlabel('Real component')
-plt.title('Eigs of (unscaled) A - classic case vs. 2-stage A ')
-plt.figtext(0.2, 0.80, apar_text)
-plt.figtext(0.2, 0.83, mpar_text)
-plt.legend()
-
-
-print('0.5 * Eigs of ALH:\n', Avals[::2]/2)
-print('Eigs of Aclassic:\n', Avals_cl)
+#print('0.5 * Eigs of ALH:\n', Avals[::2]/2)
+#print('Eigs of Aclassic:\n', Avals_cl)
 
 
 

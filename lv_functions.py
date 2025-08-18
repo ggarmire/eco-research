@@ -210,6 +210,12 @@ def lv_classic(x0, t, A, r):
 
 
 #%% Jacobian
+
+def classic_jacobian(A, xf):
+    Jac = np.dot(np.diag(xf), A)
+    return Jac
+
+
 def LH_jacobian(A, M, xf):
     n = len(xf)
     delta = np.diag(np.dot(A, xf))

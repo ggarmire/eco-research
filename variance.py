@@ -23,5 +23,5 @@ print(A)
 
 xf = [0.8, 0.9, 1, 1.1]
 
-xf0 = np.outer(xf, np.ones(n))
-print(xf0)
+xf = sorted(xf, reverse=True)
+print(xf)
