@@ -18,7 +18,7 @@ print("seed: ", seed)
 
 random.seed(1)
 
-def lv_LH_cutoff(x0, t, A, M, alpha): 
+'''def lv_LH_cutoff(x0, t, A, M, alpha): 
     def derivative(x, t, M, A, alpha):
         alphp = np.dot(alpha, x)
         dxdt = []
@@ -34,7 +34,7 @@ def lv_LH_cutoff(x0, t, A, M, alpha):
                   dxdt[i] = 0
         return dxdt
     result = integrate.odeint(derivative, x0, t, args = (M, A, alpha))
-    return result
+    return result'''
 
 #region initial conditions 
 
