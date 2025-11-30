@@ -5,12 +5,11 @@ print('\n')
 
 import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d.art3d import Line3DCollection
 import math, sys
-from scipy import integrate
-from matplotlib.animation import FuncAnimation
+from scipy.integrate import solve_ivp
 
-#sys.path.insert(1, '/Users/gracegarmire/Documents/UIUC/eco_research/LV_chotic/functions')
+sys.path.insert(1, '/Users/gracegarmire/Documents/UIUC/eco_research/LV_chotic/funcs')
+from funcs.gglyapunov import LE_spec, LE_lead
 
 
 seed = np.random.randint(0, 1000)
@@ -18,89 +17,94 @@ seed = np.random.randint(0, 1000)
 print('seed = ', seed)
 np.random.seed(seed)
 
-
-
 # endregion
 
 #region functions 
-def derivative(x, t, r, A):
-        n = len(x0)
+def derivative(t, x, r, A):
         rx = np.multiply(r, x)
-        dxdt = np.multiply(rx, (np.ones(n) - np.dot(A, x)))
-        for i in range(0, len(x0)):
-            if x[i] <= 0:
-                dxdt[i] == 0
+        dxdt = r * x * (1 - A.dot(x))
+        dxdt = np.where(x <= 0, 0.0, dxdt)
         return dxdt
 
-def lv_classic(x0, t, r, A): 
-    result = integrate.odeint(derivative, x0, t, args = (r, A))
-    return result
-
-def Jac(x, t, r, A):
-    Ax = np.dot(A, x)
-    xA = np.dot(np.diag(x), A)
-    Jac = np.diag(r) - np.diag(np.multiply(r, Ax)) - np.dot((np.diag(r), Ax))
-    return Jac
-
+def Jac(t, x, r, A):
+    n = len(x)
+    J = -(r*x)[:, None]*A
+    diag = r*(1-A.dot(x))
+    J[np.arange(n), np.arange(n)] += diag
+    return J
 #
 #endregion
-
-
-
-
 # region example values 
-t = np.linspace(0, 1000, 100000)
-rex = [1, 0.72, 1.53, 1.27]
-Aex = [[1, 1.09, 1.52, 0], [0, 1, 0.44, 1.36], [2.33, 0, 1, 0.47], [1.21, 0.51, 0.35, 1]]
+
+rex = np.array([1, 0.72, 1.53, 1.27])
+Aex = np.array([[1, 1.09, 1.52, 0], 
+       [0, 1, 0.44, 1.36], 
+       [2.33, 0, 1, 0.47], 
+       [1.21, 0.51, 0.35, 1]])
+
 #x0 = np.random.uniform(0.2, 0.8, 4)
 
-x0 = [0.3013, 0.4586, 0.1307, 0.3557]
+x0 = np.array([0.3013, 0.4586, 0.1307, 0.3557])
 
-# region integrate 
-result = lv_classic(x0, t, rex, Aex)
-# endregion 
-print('min population value: ', np.min(result))
-print('avg pops:', np.mean(result[-1000:-1, 0]), np.mean(result[-1000:-1, 1]), np.mean(result[-1000:-1, 2]), np.mean(result[-1000:-1, 3]))
-
-#region analysis 
-tsimend = 10
-dt = 0.1
-tsim = np.arange(0, tsimend+dt, dt)
-
-def LE_spec(f, x0, tsim, r, A):
-    n = len(x0)
-    gamma = np.zeros(n)
-    Q = np.identity(n)
-    result = integrate.odeint(derivative, x0, tsim, args = (r, A))
-    for i in range(len(tsim)):
-        xt = result[i,:]
-        jact = np.dot(np.diag(xt), A)
-        Qt = np.dot(jact, Q)
-        Q, R = np.linalg.qr(Qt)
-        for k in range(n):
-            gamma[k] += R[k][k]
-    LE = np.zeros(n)
-    for j in range(n):
-        LE[j] = gamma[j]/tsim[-1]
-    return LE
-
-LE = LE_spec(derivative, x0, tsim, rex, Aex)
-print(LE)
-
+# result with numerical integration
 
 # region LEs with package
+tend = 1500
+twarm =1000
+
+# LEs averaged over many runs 
+
+
+LEs, t, result = LE_spec(derivative, Jac, x0, tend, twarm, ds=2, p=(rex, Aex), result=True)
+print('LEs from 1 run:\n', LEs)
+print('LE sum:', np.sum(LEs))
+runs = 1
+LE1sum = 0
+LEssum = np.zeros(2)
+for run in range(runs): 
+    print('run', run)
+    x0i = np.random.uniform(0.2, 0.8, 4)
+    #LEi = LE_lead(derivative, Jac, x0i, tend,  twarm, ds=0.5, p=(rex, Aex))
+    LEs  = LE_spec(derivative, Jac, x0i, tend, twarm, ds=2, p=(rex, Aex), nLE = 2)
+    print('LEs:', LEs)
+    #LE1sum += LEi
+    LEssum += LEs
+
+#LE1 = LE1sum/ runs
+LE = LEssum/runs
+
+#print('L1E1:', LE1)
+print('LE:', LE)
 
 
 
+sol = solve_ivp(derivative, [0, tend], x0, method='RK45', rtol=1e-9, atol=1e-9, args = (rex, Aex))
+tsol = sol.t
+ressol = sol.y
+
+fig = plt.figure()
+ax = fig.add_subplot(111)
+ax.plot(t, result[0,:])
+ax.plot(t, result[1,:])
+ax.plot(t, result[2,:])
+ax.plot(t, result[3,:])
+ax.grid()
 
 
+fig = plt.figure()
+ax = fig.add_subplot(111)
+ax.plot(tsol, ressol[0,:])
+ax.plot(tsol, ressol[1,:])
+ax.plot(tsol, ressol[2,:])
+ax.plot(tsol, ressol[3,:])
+ax.grid()
 
 
-
+plt.show()
 
 # endregion
 
-# region plotting 
+'''# region plotting 
 plt.figure()
 for i in range(4):
     plt.plot(t, result[:,i], '-')
@@ -129,7 +133,7 @@ ax.set_zlim(z.min(), z.max())
 cb = fig.colorbar(lc, ax=ax)
 cb.set_label("4th column")
 
-
+'''
 # animated
 '''# Create figure
 fig = plt.figure()
@@ -163,6 +167,6 @@ ani = FuncAnimation(fig, update, frames=len(segments), interval=0.001, blit=Fals
 
 
 
-plt.show()
+
 
 # endregion 
